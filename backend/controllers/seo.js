@@ -24,7 +24,6 @@ exports.auditWebsite = async (req, res, next) => {
     const { url } = req.body
     const domain = new URL(url).hostname
 
-    // Create initial audit record
     const audit = await AuditResult.create({
       user: req.user.id,
       url,
@@ -34,11 +33,9 @@ exports.auditWebsite = async (req, res, next) => {
 
     console.log("✅ Audit created with ID:", audit._id)
 
-    // Update user usage
     req.user.usage.auditsThisMonth += 1
     await req.user.save({ validateBeforeSave: false })
 
-    // Start audit process (async)
     processAudit(audit._id, url)
 
     res.status(201).json({
@@ -56,13 +53,8 @@ exports.auditWebsite = async (req, res, next) => {
   }
 }
 
-// @desc    Get audit history
-// @route   GET /api/seo/audits
-// @access  Private
 exports.getAuditHistory = async (req, res, next) => {
   try {
-    console.log("📋 Getting audit history for user:", req.user.id)
-
     const page = Number.parseInt(req.query.page, 10) || 1
     const limit = Number.parseInt(req.query.limit, 10) || 10
     const startIndex = (page - 1) * limit
@@ -76,22 +68,12 @@ exports.getAuditHistory = async (req, res, next) => {
       .select("url domain overallScore status createdAt")
 
     const pagination = {}
-
     if (startIndex + limit < total) {
-      pagination.next = {
-        page: page + 1,
-        limit,
-      }
+      pagination.next = { page: page + 1, limit }
     }
-
     if (startIndex > 0) {
-      pagination.prev = {
-        page: page - 1,
-        limit,
-      }
+      pagination.prev = { page: page - 1, limit }
     }
-
-    console.log(`✅ Found ${audits.length} audits for user`)
 
     res.status(200).json({
       success: true,
@@ -106,27 +88,16 @@ exports.getAuditHistory = async (req, res, next) => {
   }
 }
 
-// @desc    Get single audit by ID
-// @route   GET /api/seo/audits/:id
-// @access  Private
 exports.getAuditById = async (req, res, next) => {
   try {
-    console.log("🔍 Getting audit by ID:", req.params.id, "for user:", req.user.id)
-
     const audit = await AuditResult.findOne({
       _id: req.params.id,
       user: req.user.id,
     })
 
     if (!audit) {
-      console.log("❌ Audit not found")
-      return res.status(404).json({
-        success: false,
-        message: "Audit not found",
-      })
+      return res.status(404).json({ success: false, message: "Audit not found" })
     }
-
-    console.log("✅ Audit found, status:", audit.status)
 
     res.status(200).json({
       success: true,
@@ -138,23 +109,15 @@ exports.getAuditById = async (req, res, next) => {
   }
 }
 
-// @desc    Generate SWOT analysis for an audit
-// @route   POST /api/seo/swot/:auditId
-// @access  Private (Basic subscription required)
 exports.generateSwotAnalysis = async (req, res, next) => {
   try {
-    console.log("🧠 Generating SWOT for audit:", req.params.auditId)
-
     const audit = await AuditResult.findOne({
       _id: req.params.auditId,
       user: req.user.id,
     })
 
     if (!audit) {
-      return res.status(404).json({
-        success: false,
-        message: "Audit not found",
-      })
+      return res.status(404).json({ success: false, message: "Audit not found" })
     }
 
     if (audit.status !== "completed") {
@@ -165,23 +128,16 @@ exports.generateSwotAnalysis = async (req, res, next) => {
     }
 
     let swotAnalysis
-
-    // Use AI for pro users, rules for basic users
     if (req.user.subscription.plan === "pro") {
-      console.log("🤖 Using AI SWOT analysis")
       swotAnalysis = await generateSwotWithAI(audit)
       swotAnalysis.generatedBy = "ai"
     } else {
-      console.log("📋 Using rule-based SWOT analysis")
       swotAnalysis = generateSwotWithRules(audit)
       swotAnalysis.generatedBy = "rules"
     }
 
-    // Update audit with SWOT analysis
     audit.swotAnalysis = swotAnalysis
     await audit.save()
-
-    console.log("✅ SWOT analysis generated successfully")
 
     res.status(200).json({
       success: true,
@@ -194,28 +150,18 @@ exports.generateSwotAnalysis = async (req, res, next) => {
   }
 }
 
-// @desc    Delete an audit
-// @route   DELETE /api/seo/audits/:id
-// @access  Private
 exports.deleteAudit = async (req, res, next) => {
   try {
-    console.log("🗑️ Deleting audit:", req.params.id)
-
     const audit = await AuditResult.findOne({
       _id: req.params.id,
       user: req.user.id,
     })
 
     if (!audit) {
-      return res.status(404).json({
-        success: false,
-        message: "Audit not found",
-      })
+      return res.status(404).json({ success: false, message: "Audit not found" })
     }
 
     await audit.deleteOne()
-
-    console.log("✅ Audit deleted successfully")
 
     res.status(200).json({
       success: true,
@@ -227,32 +173,31 @@ exports.deleteAudit = async (req, res, next) => {
   }
 }
 
-// Helper function to process audit asynchronously
 async function processAudit(auditId, url) {
   try {
-    console.log("🔄 Processing audit:", auditId, "for URL:", url)
-
     const audit = await AuditResult.findById(auditId)
     if (!audit) {
       console.error("❌ Audit not found during processing:", auditId)
       return
     }
 
-    // Perform PageSpeed audit
-    console.log("📊 Running PageSpeed audit...")
     const pageSpeedData = await performPageSpeedAudit(url)
-
-    // Perform technical SEO analysis
-    console.log("🔧 Running technical SEO analysis...")
     const technicalSeoData = await analyzeTechnicalSeo(url)
 
-    // Calculate overall score
-    const overallScore = calculateOverallScore(pageSpeedData, technicalSeoData)
+    if (typeof technicalSeoData.technicalSeo.headings?.structure === "string") {
+      try {
+        technicalSeoData.technicalSeo.headings.structure = JSON.parse(
+          technicalSeoData.technicalSeo.headings.structure
+        )
+      } catch (err) {
+        console.error("❌ Failed to parse headings.structure JSON:", err)
+        technicalSeoData.technicalSeo.headings.structure = []
+      }
+    }
 
-    // Generate recommendations
+    const overallScore = calculateOverallScore(pageSpeedData, technicalSeoData)
     const recommendations = generateRecommendations(pageSpeedData, technicalSeoData)
 
-    // Update audit with results
     audit.pageSpeedData = pageSpeedData
     audit.technicalSeo = technicalSeoData.technicalSeo
     audit.seoIssues = technicalSeoData.issues
@@ -261,19 +206,12 @@ async function processAudit(auditId, url) {
     audit.status = "completed"
 
     await audit.save()
-
-    console.log("✅ Audit processing completed successfully:", auditId)
   } catch (error) {
     console.error("❌ Audit processing error:", error)
-
-    // Update audit status to failed
-    await AuditResult.findByIdAndUpdate(auditId, {
-      status: "failed",
-    })
+    await AuditResult.findByIdAndUpdate(auditId, { status: "failed" })
   }
 }
 
-// Helper function to calculate overall score
 function calculateOverallScore(pageSpeedData, technicalSeoData) {
   const desktopScore = pageSpeedData.desktop.score || 0
   const mobileScore = pageSpeedData.mobile.score || 0
@@ -282,12 +220,10 @@ function calculateOverallScore(pageSpeedData, technicalSeoData) {
   return Math.round((desktopScore + mobileScore + technicalScore) / 3)
 }
 
-// Helper function to calculate technical SEO score
 function calculateTechnicalScore(technicalSeoData) {
   let score = 100
   const { technicalSeo } = technicalSeoData
 
-  // Deduct points for missing elements
   if (!technicalSeo.metaTitle.exists) score -= 15
   if (!technicalSeo.metaDescription.exists) score -= 10
   if (technicalSeo.headings.h1Count === 0) score -= 10
@@ -296,11 +232,9 @@ function calculateTechnicalScore(technicalSeoData) {
   return Math.max(0, score)
 }
 
-// Helper function to generate recommendations
 function generateRecommendations(pageSpeedData, technicalSeoData) {
   const recommendations = []
 
-  // PageSpeed recommendations
   if (pageSpeedData.desktop.score < 90) {
     recommendations.push({
       priority: "high",
@@ -323,7 +257,6 @@ function generateRecommendations(pageSpeedData, technicalSeoData) {
     })
   }
 
-  // Technical SEO recommendations
   const { technicalSeo } = technicalSeoData
 
   if (!technicalSeo.metaTitle.exists) {

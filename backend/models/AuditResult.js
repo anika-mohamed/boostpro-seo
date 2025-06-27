@@ -1,3 +1,4 @@
+// models/AuditResult.js
 const mongoose = require("mongoose")
 
 const auditResultSchema = new mongoose.Schema(
@@ -15,14 +16,19 @@ const auditResultSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    status: {
+      type: String,
+      enum: ["pending", "completed", "failed"],
+      default: "pending",
+    },
     pageSpeedData: {
       desktop: {
         score: Number,
-        fcp: Number, // First Contentful Paint
-        lcp: Number, // Largest Contentful Paint
-        cls: Number, // Cumulative Layout Shift
-        fid: Number, // First Input Delay
-        ttfb: Number, // Time to First Byte
+        fcp: Number,
+        lcp: Number,
+        cls: Number,
+        fid: Number,
+        ttfb: Number,
       },
       mobile: {
         score: Number,
@@ -33,94 +39,111 @@ const auditResultSchema = new mongoose.Schema(
         ttfb: Number,
       },
     },
-    seoIssues: [
-      {
-        category: {
-          type: String,
-          enum: ["critical", "warning", "info"],
-        },
-        title: String,
-        description: String,
-        impact: {
-          type: String,
-          enum: ["high", "medium", "low"],
-        },
-        suggestion: String,
-      },
-    ],
     technicalSeo: {
       metaTitle: {
         exists: Boolean,
         length: Number,
         content: String,
+        isOptimal: Boolean,
       },
       metaDescription: {
         exists: Boolean,
         length: Number,
         content: String,
+        isOptimal: Boolean,
       },
       headings: {
         h1Count: Number,
         h2Count: Number,
         h3Count: Number,
-        structure: [String],
+        h4Count: Number,
+        h5Count: Number,
+        h6Count: Number,
+        h1Text: [String],
+        structure: [
+          {
+            tag: String,
+            text: String,
+          },
+        ],
       },
       images: {
         total: Number,
         withoutAlt: Number,
+        withEmptyAlt: Number,
         oversized: Number,
+        missingAltImages: [String],
       },
       links: {
         internal: Number,
         external: Number,
         broken: Number,
+        externalDomains: [String],
       },
       schema: {
         exists: Boolean,
         types: [String],
+        schemas: [
+          {
+            type: String,
+            context: String,
+          },
+        ],
+      },
+      canonicalUrl: {
+        exists: Boolean,
+        url: String,
+      },
+      robotsMeta: {
+        exists: Boolean,
+        content: String,
+        isIndexable: Boolean,
+      },
+      openGraph: {
+        exists: Boolean,
+        tags: mongoose.Schema.Types.Mixed,
+        hasTitle: Boolean,
+        hasDescription: Boolean,
+        hasImage: Boolean,
+      },
+      twitterCard: {
+        exists: Boolean,
+        tags: mongoose.Schema.Types.Mixed,
+        hasCard: Boolean,
+        hasTitle: Boolean,
+        hasDescription: Boolean,
       },
     },
-    swotAnalysis: {
-      strengths: [String],
-      weaknesses: [String],
-      opportunities: [String],
-      threats: [String],
-      generatedBy: {
-        type: String,
-        enum: ["ai", "rules"],
-        default: "rules",
+    seoIssues: [
+      {
+        category: String,
+        title: String,
+        description: String,
+        impact: String,
+        suggestion: String,
       },
-    },
+    ],
     overallScore: {
       type: Number,
-      min: 0,
-      max: 100,
     },
     recommendations: [
       {
-        priority: {
-          type: String,
-          enum: ["high", "medium", "low"],
-        },
+        priority: String,
         category: String,
         title: String,
         description: String,
         estimatedImpact: String,
       },
     ],
-    status: {
-      type: String,
-      enum: ["pending", "completed", "failed"],
-      default: "pending",
+    swotAnalysis: {
+      strengths: [String],
+      weaknesses: [String],
+      opportunities: [String],
+      threats: [String],
+      generatedBy: String, // "ai" or "rules"
     },
   },
-  {
-    timestamps: true,
-  },
+  { timestamps: true }
 )
-
-// Index for faster queries
-auditResultSchema.index({ user: 1, createdAt: -1 })
-auditResultSchema.index({ domain: 1 })
 
 module.exports = mongoose.model("AuditResult", auditResultSchema)

@@ -10,26 +10,41 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Users, BarChart3, DollarSign, Activity, Search, MoreHorizontal, UserPlus, Settings } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { useAdminUsers } from "@/lib/hooks/use-admin-users"
+
 export default function AdminDashboard() {
   const [searchTerm, setSearchTerm] = useState("")
-  const { getUsers, updateUser, deleteUser } = useAdminUsers()
 
   const stats = {
-    totalUsers: getUsers.data?.length || 0,
-    activeUsers: getUsers.data?.filter((u) => u.isActive).length || 0,
-    totalRevenue: (getUsers.data?.filter((u) => u.role === "pro").length || 0) * 29,
+    totalUsers: 1247,
+    activeUsers: 892,
+    totalRevenue: 24580,
     auditsThisMonth: 3421,
   }
 
-  const filteredUsers = getUsers.data?.filter(
-    (user) =>
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || []
+  const users = [
+    { id: 1, name: "John Doe", email: "john@example.com", plan: "Pro", status: "active", joined: "2025-01-10" },
+    { id: 2, name: "Jane Smith", email: "jane@example.com", plan: "Free", status: "active", joined: "2025-01-12" },
+    {
+      id: 3,
+      name: "Bob Johnson",
+      email: "bob@example.com",
+      plan: "Registered",
+      status: "inactive",
+      joined: "2025-01-08",
+    },
+    { id: 4, name: "Alice Brown", email: "alice@example.com", plan: "Pro", status: "active", joined: "2025-01-15" },
+  ]
+
+  const recentActivity = [
+    { user: "John Doe", action: "Completed SEO audit", time: "2 hours ago" },
+    { user: "Jane Smith", action: "Upgraded to Pro plan", time: "4 hours ago" },
+    { user: "Bob Johnson", action: "Downloaded report", time: "6 hours ago" },
+    { user: "Alice Brown", action: "Ran keyword analysis", time: "8 hours ago" },
+  ]
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Header */}
       <header className="bg-white border-b px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
@@ -49,6 +64,7 @@ export default function AdminDashboard() {
       </header>
 
       <div className="p-6">
+        {/* Stats Overview */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -92,6 +108,7 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
+        {/* Main Content */}
         <Tabs defaultValue="users" className="space-y-6">
           <TabsList>
             <TabsTrigger value="users">User Management</TabsTrigger>
@@ -121,69 +138,141 @@ export default function AdminDashboard() {
                 </div>
               </CardHeader>
               <CardContent>
-                {getUsers.isLoading ? (
-                  <p>Loading users...</p>
-                ) : getUsers.error ? (
-                  <p className="text-red-500">Failed to load users</p>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>User</TableHead>
-                        <TableHead>Role</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Joined</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead>Plan</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Joined</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {users.map((user) => (
+                      <TableRow key={user.id}>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{user.name}</div>
+                            <div className="text-sm text-muted-foreground">{user.email}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              user.plan === "Pro" ? "default" : user.plan === "Registered" ? "secondary" : "outline"
+                            }
+                          >
+                            {user.plan}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={user.status === "active" ? "default" : "secondary"}>{user.status}</Badge>
+                        </TableCell>
+                        <TableCell>{user.joined}</TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" className="h-8 w-8 p-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem>View Details</DropdownMenuItem>
+                              <DropdownMenuItem>Edit User</DropdownMenuItem>
+                              <DropdownMenuItem>Reset Password</DropdownMenuItem>
+                              <DropdownMenuItem className="text-red-600">Deactivate</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredUsers.map((user) => (
-                        <TableRow key={user._id}>
-                          <TableCell>
-                            <div>
-                              <div className="font-medium">{user.name}</div>
-                              <div className="text-sm text-muted-foreground">{user.email}</div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge>{user.role}</Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={user.isActive ? "default" : "secondary"}>
-                              {user.isActive ? "Active" : "Inactive"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
-                          <TableCell className="text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem>Edit User</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => deleteUser.mutate(user._id)} className="text-red-600">
-                                  Deactivate
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
+                    ))}
+                  </TableBody>
+                </Table>
               </CardContent>
             </Card>
           </TabsContent>
 
           <TabsContent value="analytics" className="space-y-6">
-            <p>Analytics content...</p>
+            <div className="grid gap-6 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Platform Usage</CardTitle>
+                  <CardDescription>Key metrics and trends</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Daily Active Users</span>
+                      <span className="text-sm">324</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Audits Completed Today</span>
+                      <span className="text-sm">127</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">New Registrations</span>
+                      <span className="text-sm">18</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Pro Upgrades</span>
+                      <span className="text-sm">5</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recent Activity</CardTitle>
+                  <CardDescription>Latest user actions</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {recentActivity.map((activity, index) => (
+                      <div key={index} className="flex items-center space-x-3">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{activity.user}</p>
+                          <p className="text-xs text-gray-500">{activity.action}</p>
+                        </div>
+                        <span className="text-xs text-gray-500">{activity.time}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-6">
-            <p>System settings content...</p>
+            <Card>
+              <CardHeader>
+                <CardTitle>System Settings</CardTitle>
+                <CardDescription>Configure platform settings and preferences</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="siteName">Site Name</Label>
+                    <Input id="siteName" defaultValue="SEO BoostPro" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="maxAudits">Max Audits per Month (Free Users)</Label>
+                    <Input id="maxAudits" type="number" defaultValue="5" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="proPrice">Pro Plan Price (Monthly)</Label>
+                    <Input id="proPrice" type="number" defaultValue="49" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="registeredPrice">Registered Plan Price (Monthly)</Label>
+                    <Input id="registeredPrice" type="number" defaultValue="19" />
+                  </div>
+                  <Button>Save Settings</Button>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
