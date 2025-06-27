@@ -51,7 +51,7 @@ const seedUsers = async () => {
         emailVerified: true,
         subscription: {
           status: "active",
-          plan: "basic",
+          plan: "pro",
         },
         profile: {
           company: "Marketing Agency",

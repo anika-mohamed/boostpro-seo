@@ -5,6 +5,7 @@ const { analyzeTechnicalSeo } = require("../services/technicalSeoService")
 const { generateSwotWithAI } = require("../services/aiService")
 const { generateSwotWithRules } = require("../services/swotService")
 
+
 // @desc    Audit a website
 // @route   POST /api/seo/audit
 // @access  Private
@@ -36,7 +37,10 @@ exports.auditWebsite = async (req, res, next) => {
     req.user.usage.auditsThisMonth += 1
     await req.user.save({ validateBeforeSave: false })
 
-    processAudit(audit._id, url)
+    // Fire and forget processAudit, but log errors internally
+    processAudit(audit._id, url).catch((err) => {
+      console.error("❌ Error processing audit:", err)
+    })
 
     res.status(201).json({
       success: true,
@@ -53,6 +57,7 @@ exports.auditWebsite = async (req, res, next) => {
   }
 }
 
+// Get paginated audit history for user
 exports.getAuditHistory = async (req, res, next) => {
   try {
     const page = Number.parseInt(req.query.page, 10) || 1
@@ -88,6 +93,7 @@ exports.getAuditHistory = async (req, res, next) => {
   }
 }
 
+// Get a single audit by ID for user
 exports.getAuditById = async (req, res, next) => {
   try {
     const audit = await AuditResult.findOne({
@@ -109,6 +115,7 @@ exports.getAuditById = async (req, res, next) => {
   }
 }
 
+// Generate SWOT analysis (AI-powered if pro, else rules)
 exports.generateSwotAnalysis = async (req, res, next) => {
   try {
     const audit = await AuditResult.findOne({
@@ -129,17 +136,21 @@ exports.generateSwotAnalysis = async (req, res, next) => {
 
     let swotAnalysis
     if (req.user.subscription.plan === "pro") {
+      // Call the AI SWOT generator with the audit data
       console.log("Generating AI-powered SWOT analysis...")
       swotAnalysis = await generateSwotWithAI(audit)
       swotAnalysis.generatedBy = "ai"
     } else {
+      // Use fallback rule-based SWOT analysis
       swotAnalysis = generateSwotWithRules(audit)
       swotAnalysis.generatedBy = "rules"
     }
 
+    // Save SWOT result back to audit document
     audit.swotAnalysis = swotAnalysis
     await audit.save()
 
+    // Return SWOT analysis response
     res.status(200).json({
       success: true,
       data: swotAnalysis,
@@ -150,6 +161,7 @@ exports.generateSwotAnalysis = async (req, res, next) => {
   }
 }
 
+// Delete audit
 exports.deleteAudit = async (req, res, next) => {
   try {
     const audit = await AuditResult.findOne({
@@ -173,6 +185,7 @@ exports.deleteAudit = async (req, res, next) => {
   }
 }
 
+// Internal function to perform the audit asynchronously
 async function processAudit(auditId, url) {
   try {
     const audit = await AuditResult.findById(auditId)
@@ -184,6 +197,7 @@ async function processAudit(auditId, url) {
     const pageSpeedData = await performPageSpeedAudit(url)
     const technicalSeoData = await analyzeTechnicalSeo(url)
 
+    // Parse headings structure if string
     if (typeof technicalSeoData.technicalSeo.headings?.structure === "string") {
       try {
         technicalSeoData.technicalSeo.headings.structure = JSON.parse(
@@ -195,6 +209,7 @@ async function processAudit(auditId, url) {
       }
     }
 
+    // Calculate overall score and recommendations
     const overallScore = calculateOverallScore(pageSpeedData, technicalSeoData)
     const recommendations = generateRecommendations(pageSpeedData, technicalSeoData)
 
@@ -212,6 +227,7 @@ async function processAudit(auditId, url) {
   }
 }
 
+// Helper to calculate overall score
 function calculateOverallScore(pageSpeedData, technicalSeoData) {
   const desktopScore = pageSpeedData.desktop.score || 0
   const mobileScore = pageSpeedData.mobile.score || 0
@@ -220,6 +236,7 @@ function calculateOverallScore(pageSpeedData, technicalSeoData) {
   return Math.round((desktopScore + mobileScore + technicalScore) / 3)
 }
 
+// Helper to calculate technical SEO score
 function calculateTechnicalScore(technicalSeoData) {
   let score = 100
   const { technicalSeo } = technicalSeoData
@@ -232,6 +249,7 @@ function calculateTechnicalScore(technicalSeoData) {
   return Math.max(0, score)
 }
 
+// Generate actionable recommendations
 function generateRecommendations(pageSpeedData, technicalSeoData) {
   const recommendations = []
 
