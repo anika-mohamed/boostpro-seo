@@ -129,6 +129,7 @@ exports.generateSwotAnalysis = async (req, res, next) => {
 
     let swotAnalysis
     if (req.user.subscription.plan === "pro") {
+      console.log("Generating AI-powered SWOT analysis...")
       swotAnalysis = await generateSwotWithAI(audit)
       swotAnalysis.generatedBy = "ai"
     } else {
@@ -141,11 +142,10 @@ exports.generateSwotAnalysis = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      message: "SWOT analysis generated successfully",
       data: swotAnalysis,
     })
   } catch (error) {
-    console.error("❌ SWOT generation error:", error)
+    console.error("❌ SWOT analysis generation error:", error)
     next(error)
   }
 }

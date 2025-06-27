@@ -136,11 +136,27 @@ const auditResultSchema = new mongoose.Schema(
       },
     ],
     swotAnalysis: {
-      strengths: [String],
-      weaknesses: [String],
-      opportunities: [String],
-      threats: [String],
-      generatedBy: String, // "ai" or "rules"
+      strengths: {
+        type: [String],
+        default: [],
+      },
+      weaknesses: {
+        type: [String],
+        default: [],
+      },
+      opportunities: {
+        type: [String],
+        default: [],
+      },
+      threats: {
+        type: [String],
+        default: [],
+      },
+      generatedBy: {
+        type: String,
+        enum: ["ai", "rules"],
+        default: "rules",
+      },
     },
   },
   { timestamps: true }

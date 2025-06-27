@@ -23,23 +23,16 @@ exports.analyzeTechnicalSeo = async (url) => {
     const page = await browser.newPage()
     await page.setUserAgent("Mozilla/5.0 (compatible; SEOBoostPro/1.0; +https://seoboostpro.com/bot)")
 
-    // Set viewport for consistent rendering
     await page.setViewport({ width: 1200, height: 800 })
-
-    // Navigate to the page with extended timeout
     await page.goto(url, {
       waitUntil: "networkidle2",
       timeout: 45000,
     })
 
-    // Get page content
     const content = await page.content()
     const $ = cheerio.load(content)
-
-    // Get page title from browser (more accurate than just HTML)
     const pageTitle = await page.title()
 
-    // Analyze technical SEO elements
     const technicalSeo = {
       metaTitle: analyzeMetaTitle($, pageTitle),
       metaDescription: analyzeMetaDescription($),
@@ -53,25 +46,39 @@ exports.analyzeTechnicalSeo = async (url) => {
       twitterCard: analyzeTwitterCard($),
     }
 
-    // Generate SEO issues based on analysis
-    const issues = generateSeoIssues(technicalSeo, url)
+    // ✅ Fix: Ensure headings.structure is parsed properly
+    if (typeof technicalSeo.headings.structure === "string") {
+      try {
+        technicalSeo.headings.structure = JSON.parse(technicalSeo.headings.structure)
+      } catch (err) {
+        console.warn("Failed to parse headings.structure as JSON")
+        technicalSeo.headings.structure = []
+      }
+    }
 
-    console.log("Technical SEO analysis completed successfully")
+    // ✅ Fix: Ensure schema.schemas is parsed properly
+    if (typeof technicalSeo.schema.schemas === "string") {
+      try {
+        technicalSeo.schema.schemas = JSON.parse(technicalSeo.schema.schemas)
+      } catch (err) {
+        console.warn("Failed to parse schema.schemas as JSON")
+        technicalSeo.schema.schemas = []
+      }
+    }
+
+    const issues = generateSeoIssues(technicalSeo, url)
+    console.log("✅ Technical SEO analysis completed")
 
     return {
       technicalSeo,
       issues,
     }
   } catch (error) {
-    console.error("Technical SEO analysis error:", error.message)
-
-    // Return mock data if analysis fails
-    console.log("Falling back to mock technical SEO data")
+    console.error("❌ Technical SEO analysis error:", error.message)
+    console.log("⚠️ Falling back to mock technical SEO data")
     return getMockTechnicalSeoData()
   } finally {
-    if (browser) {
-      await browser.close()
-    }
+    if (browser) await browser.close()
   }
 }
 
