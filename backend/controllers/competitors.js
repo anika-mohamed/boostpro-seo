@@ -146,11 +146,14 @@ async function processCompetitorAnalysis(analysisId, keywords, userWebsite) {
       }
     }
 
-    // Perform gap analysis
-    const gapAnalysis = performGapAnalysis(competitors, keywords, userWebsite)
+    // Analyze user website
+    const userData = await analyzeUserWebsite(userWebsite, keywords)
 
-    // Generate summary
-    const summary = generateCompetitorSummary(competitors, gapAnalysis)
+    // Perform gap analysis with user data
+    const gapAnalysis = performGapAnalysis(competitors, keywords, userData)
+
+    // Generate summary with user data
+    const summary = generateCompetitorSummary(competitors, gapAnalysis, userData)
 
     // Update analysis with results
     analysis.competitors = competitors
@@ -160,25 +163,38 @@ async function processCompetitorAnalysis(analysisId, keywords, userWebsite) {
       contentGaps: identifyContentGaps(competitors),
       opportunities: identifyOpportunities(competitors, keywords),
       threats: identifyThreats(competitors),
+      userData, // add user data for frontend use
     }
     analysis.summary = summary
 
     await analysis.save()
   } catch (error) {
     console.error("Competitor analysis processing error:", error)
-    // Could update analysis status to failed here
+    // Optionally update analysis status to failed here
   }
 }
 
-// Helper functions
-function performGapAnalysis(competitors, keywords, userWebsite) {
+// Analyze user's website like competitors
+async function analyzeUserWebsite(userWebsite, keywords) {
+  if (!userWebsite) return null
+  try {
+    const userData = await analyzeCompetitorContent(userWebsite, keywords)
+    return userData
+  } catch (error) {
+    console.error("Error analyzing user website:", error.message)
+    return null
+  }
+}
+
+// Perform keyword gap analysis comparing user vs competitors
+function performGapAnalysis(competitors, keywords, userData) {
   const gapAnalysis = []
 
   keywords.forEach((keyword) => {
     const competitorDensities = competitors
       .map((comp) => {
-        const keywordData = comp.keywordDensity.find((kd) => kd.keyword.toLowerCase() === keyword.toLowerCase())
-        return keywordData ? keywordData.density : 0
+        const kd = comp.keywordDensity.find((kd) => kd.keyword.toLowerCase() === keyword.toLowerCase())
+        return kd ? kd.density : 0
       })
       .filter((density) => density > 0)
 
@@ -187,38 +203,61 @@ function performGapAnalysis(competitors, keywords, userWebsite) {
         ? competitorDensities.reduce((sum, density) => sum + density, 0) / competitorDensities.length
         : 0
 
+    // Get user density for this keyword if available
+    let userDensity = 0
+    if (userData) {
+      const userKd = userData.keywordDensity.find((kd) => kd.keyword.toLowerCase() === keyword.toLowerCase())
+      userDensity = userKd ? userKd.density : 0
+    }
+
+    let recommendation = ""
+    if (userDensity < avgCompetitorDensity) {
+      recommendation = `Consider increasing keyword density to ${Math.round(avgCompetitorDensity * 100) / 100}%`
+    } else {
+      recommendation = "Keyword density is competitive or above average"
+    }
+
     gapAnalysis.push({
       keyword,
-      userDensity: 0, // Would need to analyze user's site
+      userDensity,
       avgCompetitorDensity,
-      recommendation:
-        avgCompetitorDensity > 0
-          ? `Consider increasing keyword density to ${Math.round(avgCompetitorDensity * 100) / 100}%`
-          : "Keyword not commonly used by competitors - opportunity for differentiation",
+      recommendation,
     })
   })
 
   return gapAnalysis
 }
 
-function generateCompetitorSummary(competitors, gapAnalysis) {
+// Generate summary including user advantages and improvement areas
+function generateCompetitorSummary(competitors, gapAnalysis, userData) {
   const totalCompetitors = competitors.length
   const avgCompetitorScore =
     competitors.length > 0
       ? Math.round(competitors.reduce((sum, comp) => sum + comp.technicalScore, 0) / competitors.length)
       : 0
 
+  const userAdvantages = []
+  const improvementAreas = gapAnalysis
+    .filter((gap) => gap.userDensity < gap.avgCompetitorDensity)
+    .map((gap) => gap.recommendation)
+    .slice(0, 3)
+
+  if (userData) {
+    if (userData.technicalScore > avgCompetitorScore) {
+      userAdvantages.push("Better technical SEO score than average competitors")
+    }
+    // Add more logic here for other advantages if needed
+  }
+
   return {
     totalCompetitors,
     avgCompetitorScore,
-    userAdvantages: [
-      "Opportunity to optimize for underused keywords",
-      "Potential for better technical SEO implementation",
-    ],
-    improvementAreas: gapAnalysis.map((gap) => gap.recommendation).slice(0, 3),
+    userAdvantages,
+    improvementAreas,
   }
 }
 
+// Find user's site ranking in competitor list
 function findUserSiteRanking(competitors, userWebsite) {
   if (!userWebsite) return null
 
@@ -227,10 +266,8 @@ function findUserSiteRanking(competitors, userWebsite) {
   return userCompetitor ? userCompetitor.ranking : null
 }
 
+// Placeholder - analyze competitor content for common topics (expand as needed)
 function identifyContentGaps(competitors) {
-  const commonTopics = []
-  // This would analyze competitor content for common topics
-  // For now, return sample gaps
   return [
     "How-to guides and tutorials",
     "Comparison articles",
@@ -239,6 +276,7 @@ function identifyContentGaps(competitors) {
   ]
 }
 
+// Placeholder - opportunities to suggest
 function identifyOpportunities(competitors, keywords) {
   return [
     "Target long-tail variations of main keywords",
@@ -248,6 +286,7 @@ function identifyOpportunities(competitors, keywords) {
   ]
 }
 
+// Placeholder - potential threats to highlight
 function identifyThreats(competitors) {
   return [
     "High competition for target keywords",

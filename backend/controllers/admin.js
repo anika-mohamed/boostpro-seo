@@ -3,6 +3,45 @@ const AuditResult = require("../models/AuditResult")
 const KeywordResearch = require("../models/KeywordResearch")
 const ContentOptimization = require("../models/ContentOptimization")
 
+// @desc    Create a new user
+// @route   POST /api/admin/users
+// @access  Private/Admin
+exports.createUser = async (req, res, next) => {
+  try {
+    const { name, email, password, role } = req.body
+
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Name, email, and password are required",
+      })
+    }
+
+    const existingUser = await User.findOne({ email })
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: "User with this email already exists",
+      })
+    }
+
+    const user = await User.create({ name, email, password, role })
+
+    res.status(201).json({
+      success: true,
+      message: "User created successfully",
+      data: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
 // @desc    Get all users
 // @route   GET /api/admin/users
 // @access  Private/Admin
@@ -14,22 +53,19 @@ exports.getUsers = async (req, res, next) => {
 
     const total = await User.countDocuments()
 
-    const users = await User.find().sort({ createdAt: -1 }).limit(limit).skip(startIndex).select("-password")
+    const users = await User.find()
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .skip(startIndex)
+      .select("-password")
 
     const pagination = {}
 
     if (startIndex + limit < total) {
-      pagination.next = {
-        page: page + 1,
-        limit,
-      }
+      pagination.next = { page: page + 1, limit }
     }
-
     if (startIndex > 0) {
-      pagination.prev = {
-        page: page - 1,
-        limit,
-      }
+      pagination.prev = { page: page - 1, limit }
     }
 
     res.status(200).json({
@@ -52,13 +88,9 @@ exports.getUserById = async (req, res, next) => {
     const user = await User.findById(req.params.id).select("-password")
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      })
+      return res.status(404).json({ success: false, message: "User not found" })
     }
 
-    // Get user's activity stats
     const [auditCount, keywordCount, contentCount] = await Promise.all([
       AuditResult.countDocuments({ user: user._id }),
       KeywordResearch.countDocuments({ user: user._id }),
@@ -74,10 +106,7 @@ exports.getUserById = async (req, res, next) => {
       },
     }
 
-    res.status(200).json({
-      success: true,
-      data: userWithStats,
-    })
+    res.status(200).json({ success: true, data: userWithStats })
   } catch (error) {
     next(error)
   }
@@ -96,11 +125,8 @@ exports.updateUser = async (req, res, next) => {
       emailVerified: req.body.emailVerified,
     }
 
-    // Remove undefined fields
     Object.keys(fieldsToUpdate).forEach((key) => {
-      if (fieldsToUpdate[key] === undefined) {
-        delete fieldsToUpdate[key]
-      }
+      if (fieldsToUpdate[key] === undefined) delete fieldsToUpdate[key]
     })
 
     const user = await User.findByIdAndUpdate(req.params.id, fieldsToUpdate, {
@@ -109,10 +135,7 @@ exports.updateUser = async (req, res, next) => {
     }).select("-password")
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      })
+      return res.status(404).json({ success: false, message: "User not found" })
     }
 
     res.status(200).json({
@@ -133,26 +156,16 @@ exports.deleteUser = async (req, res, next) => {
     const user = await User.findById(req.params.id)
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      })
+      return res.status(404).json({ success: false, message: "User not found" })
     }
 
-    // Don't allow deleting other admin users
     if (user.role === "admin" && user._id.toString() !== req.user.id) {
-      return res.status(403).json({
-        success: false,
-        message: "Cannot delete other admin users",
-      })
+      return res.status(403).json({ success: false, message: "Cannot delete other admin users" })
     }
 
     await user.deleteOne()
 
-    res.status(200).json({
-      success: true,
-      message: "User deleted successfully",
-    })
+    res.status(200).json({ success: true, message: "User deleted successfully" })
   } catch (error) {
     next(error)
   }
@@ -172,16 +185,9 @@ exports.getDashboardStats = async (req, res, next) => {
         User.countDocuments({ "subscription.status": "active" }),
       ])
 
-    // Get new users this month
     const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-    const newUsersThisMonth = await User.countDocuments({
-      createdAt: { $gte: startOfMonth },
-    })
-
-    // Get audits this month
-    const auditsThisMonth = await AuditResult.countDocuments({
-      createdAt: { $gte: startOfMonth },
-    })
+    const newUsersThisMonth = await User.countDocuments({ createdAt: { $gte: startOfMonth } })
+    const auditsThisMonth = await AuditResult.countDocuments({ createdAt: { $gte: startOfMonth } })
 
     const stats = {
       totalUsers,
@@ -191,13 +197,10 @@ exports.getDashboardStats = async (req, res, next) => {
       activeSubscriptions,
       newUsersThisMonth,
       auditsThisMonth,
-      revenue: activeSubscriptions * 29, // Mock revenue calculation
+      revenue: activeSubscriptions * 29,
     }
 
-    res.status(200).json({
-      success: true,
-      data: stats,
-    })
+    res.status(200).json({ success: true, data: stats })
   } catch (error) {
     next(error)
   }
@@ -208,51 +211,28 @@ exports.getDashboardStats = async (req, res, next) => {
 // @access  Private/Admin
 exports.getAuditStats = async (req, res, next) => {
   try {
-    // Get audit stats by status
     const auditsByStatus = await AuditResult.aggregate([
-      {
-        $group: {
-          _id: "$status",
-          count: { $sum: 1 },
-        },
-      },
+      { $group: { _id: "$status", count: { $sum: 1 } } },
     ])
 
-    // Get audits by score range
     const auditsByScore = await AuditResult.aggregate([
       {
         $bucket: {
           groupBy: "$overallScore",
           boundaries: [0, 25, 50, 75, 100],
           default: "Unknown",
-          output: {
-            count: { $sum: 1 },
-          },
+          output: { count: { $sum: 1 } },
         },
       },
     ])
 
-    // Get top domains
     const topDomains = await AuditResult.aggregate([
-      {
-        $group: {
-          _id: "$domain",
-          count: { $sum: 1 },
-          avgScore: { $avg: "$overallScore" },
-        },
-      },
+      { $group: { _id: "$domain", count: { $sum: 1 }, avgScore: { $avg: "$overallScore" } } },
       { $sort: { count: -1 } },
       { $limit: 10 },
     ])
 
-    res.status(200).json({
-      success: true,
-      data: {
-        auditsByStatus,
-        auditsByScore,
-        topDomains,
-      },
-    })
+    res.status(200).json({ success: true, data: { auditsByStatus, auditsByScore, topDomains } })
   } catch (error) {
     next(error)
   }
@@ -263,33 +243,18 @@ exports.getAuditStats = async (req, res, next) => {
 // @access  Private/Admin
 exports.getSubscriptionStats = async (req, res, next) => {
   try {
-    // Get users by plan
     const usersByPlan = await User.aggregate([
-      {
-        $group: {
-          _id: "$subscription.plan",
-          count: { $sum: 1 },
-        },
-      },
+      { $group: { _id: "$subscription.plan", count: { $sum: 1 } } },
     ])
 
-    // Get users by subscription status
     const usersByStatus = await User.aggregate([
-      {
-        $group: {
-          _id: "$subscription.status",
-          count: { $sum: 1 },
-        },
-      },
+      { $group: { _id: "$subscription.status", count: { $sum: 1 } } },
     ])
 
-    // Calculate churn rate (mock calculation)
     const totalPaidUsers = await User.countDocuments({
       "subscription.status": { $in: ["active", "cancelled", "past_due"] },
     })
-    const cancelledUsers = await User.countDocuments({
-      "subscription.status": "cancelled",
-    })
+    const cancelledUsers = await User.countDocuments({ "subscription.status": "cancelled" })
     const churnRate = totalPaidUsers > 0 ? (cancelledUsers / totalPaidUsers) * 100 : 0
 
     res.status(200).json({
@@ -299,7 +264,7 @@ exports.getSubscriptionStats = async (req, res, next) => {
         usersByStatus,
         churnRate: Math.round(churnRate * 100) / 100,
         totalPaidUsers,
-        monthlyRecurringRevenue: totalPaidUsers * 29, // Mock MRR
+        monthlyRecurringRevenue: totalPaidUsers * 29,
       },
     })
   } catch (error) {
