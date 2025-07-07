@@ -51,6 +51,9 @@ export const useAuth = () => {
         isLoading: false,
       })
 
+       // Persist token for API calls
+    localStorage.setItem("token", response.token)
+
       toast.success("Login successful!")
       router.push("/dashboard")
     } catch (error: any) {

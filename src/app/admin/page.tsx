@@ -22,17 +22,29 @@ export default function AdminDashboard() {
 
   const handleCreateUser = async () => {
     try {
-      await axios.post("/api/admin/users", newUser)
-      toast.success("User created successfully")
-      setOpenDialog(false)
-      setNewUser({ name: "", email: "", password: "" })
+      const token = localStorage.getItem("token"); 
+  
+      await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/admin/users`,
+        newUser,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      
+  
+      toast.success("User created successfully");
+      setOpenDialog(false);
+      setNewUser({ name: "", email: "", password: "" });
     } catch (err) {
       toast.error("Error creating user", {
         description: err?.response?.data?.message || "Something went wrong",
-      })
+      });
     }
-  }
-
+  };
+  
   const stats = {
     totalUsers: 1247,
     activeUsers: 892,
