@@ -42,7 +42,7 @@ exports.createUser = async (req, res, next) => {
   }
 }
 
-// @desc    Get all users
+// @desc    Get all users / Fetch users
 // @route   GET /api/admin/users
 // @access  Private/Admin
 exports.getUsers = async (req, res, next) => {
@@ -121,7 +121,7 @@ exports.updateUser = async (req, res, next) => {
       name: req.body.name,
       email: req.body.email,
       role: req.body.role,
-      isActive: req.body.isActive,
+      isActive: req.body.isActive, // <- this is status from frontend
       emailVerified: req.body.emailVerified,
     }
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import axios from "axios"
 
 import { Button } from "@/components/ui/button"
@@ -19,45 +19,108 @@ export default function AdminDashboard() {
   const [searchTerm, setSearchTerm] = useState("")
   const [openDialog, setOpenDialog] = useState(false)
   const [newUser, setNewUser] = useState({ name: "", email: "", password: "" })
+  const [stats, setStats] = useState({ totalUsers: 0, activeUsers: 0, totalRevenue: 0, auditsThisMonth: 0 })
+  const [users, setUsers] = useState([])
+  const [selectedUser, setSelectedUser] = useState(null)
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
+  const [editUser, setEditUser] = useState(null)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [resetUser, setResetUser] = useState(null)
+  const [newPassword, setNewPassword] = useState("")
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false)
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const token = localStorage.getItem("token")
+        const [statsRes, usersRes] = await Promise.all([
+          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/admin/stats/dashboard`, { headers: { Authorization: `Bearer ${token}` } }),
+          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/admin/users`, { headers: { Authorization: `Bearer ${token}` } }),
+        ])
+
+        setStats(statsRes.data.data)
+        const mappedUsers = usersRes.data.data.map(user => ({
+          ...user,
+          plan: user.subscription?.plan || "Free",
+          status: user.isActive ? "active" : "inactive",
+        }))
+        setUsers(mappedUsers)
+      } catch (err) {
+        toast.error("Failed to fetch dashboard data", { description: err?.response?.data?.message || "Check your server/API" })
+      }
+    }
+
+    fetchDashboardData()
+  }, [])
 
   const handleCreateUser = async () => {
     try {
-      const token = localStorage.getItem("token"); 
-  
-      await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/admin/users`,
-        newUser,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      
-  
-      toast.success("User created successfully");
-      setOpenDialog(false);
-      setNewUser({ name: "", email: "", password: "" });
+      const token = localStorage.getItem("token")
+      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/admin/users`, newUser, { headers: { Authorization: `Bearer ${token}` } })
+      toast.success("User created successfully")
+      setOpenDialog(false)
+      setNewUser({ name: "", email: "", password: "" })
+      const usersRes = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/admin/users`, { headers: { Authorization: `Bearer ${token}` } })
+      setUsers(usersRes.data.data)
     } catch (err) {
-      toast.error("Error creating user", {
-        description: err?.response?.data?.message || "Something went wrong",
-      });
+      toast.error("Error creating user", { description: err?.response?.data?.message || "Something went wrong" })
     }
-  };
-  
-  const stats = {
-    totalUsers: 1247,
-    activeUsers: 892,
-    totalRevenue: 24580,
-    auditsThisMonth: 3421,
   }
 
-  const users = [
-    { id: 1, name: "John Doe", email: "john@example.com", plan: "Pro", status: "active", joined: "2025-01-10" },
-    { id: 2, name: "Jane Smith", email: "jane@example.com", plan: "Free", status: "active", joined: "2025-01-12" },
-    { id: 3, name: "Bob Johnson", email: "bob@example.com", plan: "Registered", status: "inactive", joined: "2025-01-08" },
-    { id: 4, name: "Alice Brown", email: "alice@example.com", plan: "Pro", status: "active", joined: "2025-01-15" },
-  ]
+  const handleUpdateUser = async () => {
+    try {
+      const token = localStorage.getItem("token")
+      const payload = {
+        name: editUser.name,
+        email: editUser.email,
+        role: editUser.role,
+        isActive: editUser.status === "active",
+      }
+      const res = await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${editUser._id}`, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      toast.success("User updated successfully")
+      setIsEditDialogOpen(false)
+      const updatedUser = res.data.data
+      setUsers(prevUsers =>
+        prevUsers.map(user =>
+          user._id === updatedUser._id
+            ? { ...user, ...updatedUser, status: updatedUser.isActive ? "active" : "inactive", plan: updatedUser.subscription?.plan || user.plan || "Free" }
+            : user
+        )
+      )
+    } catch (err) {
+      toast.error("Failed to update user", { description: err?.response?.data?.message || "Something went wrong" })
+    }
+  }
+
+  const handleResetPassword = async () => {
+    try {
+      const token = localStorage.getItem("token")
+      await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${resetUser._id}`, { password: newPassword }, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      toast.success("Password reset successfully")
+      setIsResetDialogOpen(false)
+      setNewPassword("")
+    } catch (err) {
+      toast.error("Failed to reset password", { description: err?.response?.data?.message || "Something went wrong" })
+    }
+  }
+
+  const handleDeactivateUser = async (userId) => {
+    try {
+      const token = localStorage.getItem("token")
+      await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${userId}`, { isActive: false }, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      toast.success("User deactivated successfully")
+      const usersRes = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/admin/users`, { headers: { Authorization: `Bearer ${token}` } })
+      setUsers(usersRes.data.data)
+    } catch (err) {
+      toast.error("Failed to deactivate user", { description: err?.response?.data?.message || "Something went wrong" })
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -89,15 +152,29 @@ export default function AdminDashboard() {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Name</Label>
-                  <Input id="name" value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} />
+                  <Input
+                    id="name"
+                    value={newUser.name}
+                    onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} />
+                  <Input
+                    id="email"
+                    type="email"
+                    value={newUser.email}
+                    onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
-                  <Input id="password" type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} />
+                  <Input
+                    id="password"
+                    type="password"
+                    value={newUser.password}
+                    onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                  />
                 </div>
               </div>
               <DialogFooter>
@@ -128,7 +205,7 @@ export default function AdminDashboard() {
               <Activity className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.activeUsers.toLocaleString()}</div>
+              <div className="text-2xl font-bold">{stats.activeUsers?.toLocaleString() || "0"}</div>
               <p className="text-xs text-muted-foreground">+8% from last month</p>
             </CardContent>
           </Card>
@@ -138,7 +215,7 @@ export default function AdminDashboard() {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${stats.totalRevenue.toLocaleString()}</div>
+              <div className="text-2xl font-bold">${stats.totalRevenue?.toLocaleString() || "0"}</div>
               <p className="text-xs text-muted-foreground">+23% from last month</p>
             </CardContent>
           </Card>
@@ -148,7 +225,7 @@ export default function AdminDashboard() {
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.auditsThisMonth.toLocaleString()}</div>
+              <div className="text-2xl font-bold">{stats.auditsThisMonth?.toLocaleString() || "0"}</div>
               <p className="text-xs text-muted-foreground">+15% from last month</p>
             </CardContent>
           </Card>
@@ -195,13 +272,13 @@ export default function AdminDashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {users
+                    {(users || [])
                       .filter((user) =>
                         user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                         user.email.toLowerCase().includes(searchTerm.toLowerCase())
                       )
                       .map((user) => (
-                        <TableRow key={user.id}>
+                        <TableRow key={user._id}>
                           <TableCell>
                             <div>
                               <div className="font-medium">{user.name}</div>
@@ -209,18 +286,22 @@ export default function AdminDashboard() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge
-                              variant={
-                                user.plan === "Pro" ? "default" : user.plan === "Registered" ? "secondary" : "outline"
-                              }
-                            >
-                              {user.plan}
-                            </Badge>
+                          <Badge
+  variant={
+    user.plan === "Pro" ? "default" :
+    user.plan === "registered" ? "secondary" :
+    "outline"
+  }
+>
+  {user.plan || "N/A"}
+</Badge>
                           </TableCell>
                           <TableCell>
-                            <Badge variant={user.status === "active" ? "default" : "secondary"}>{user.status}</Badge>
+                          <Badge variant={user.status === "active" ? "default" : "secondary"}>
+  {user.status || "unknown"}
+</Badge>
                           </TableCell>
-                          <TableCell>{user.joined}</TableCell>
+                          <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
                           <TableCell className="text-right">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -229,10 +310,36 @@ export default function AdminDashboard() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem>View Details</DropdownMenuItem>
-                                <DropdownMenuItem>Edit User</DropdownMenuItem>
-                                <DropdownMenuItem>Reset Password</DropdownMenuItem>
-                                <DropdownMenuItem className="text-red-600">Deactivate</DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setSelectedUser(user)
+                                    setIsViewDialogOpen(true)
+                                  }}
+                                >
+                                  View Details
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setEditUser(user)
+                                    setIsEditDialogOpen(true)
+                                  }}
+                                >
+                                  Edit User
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setResetUser(user)
+                                    setIsResetDialogOpen(true)
+                                  }}
+                                >
+                                  Reset Password
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  className="text-red-600"
+                                  onClick={() => handleDeactivateUser(user._id)}
+                                >
+                                  Deactivate
+                                </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
@@ -244,9 +351,91 @@ export default function AdminDashboard() {
             </Card>
           </TabsContent>
 
-          {/* Additional tab content (analytics/settings) can be added here */}
+          {/* Analytics & Settings tab contents can be added here */}
         </Tabs>
       </div>
+
+      {/* View Details Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>User Details</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <p><strong>Name:</strong> {selectedUser?.name}</p>
+            <p><strong>Email:</strong> {selectedUser?.email}</p>
+            <p><strong>Password:</strong> {selectedUser?.password || "******"}</p>
+            <p><strong>Role:</strong> {selectedUser?.role}</p>
+            <p><strong>Email Verified:</strong> {selectedUser?.emailVerified ? "Yes" : "No"}</p>
+            <p><strong>Company:</strong> {selectedUser?.profile?.company || "-"}</p>
+            <p><strong>Website:</strong> {selectedUser?.profile?.website || "-"}</p>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setIsViewDialogOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit User Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>Edit User</DialogTitle>
+    </DialogHeader>
+    <div className="space-y-4">
+      <Label>Name</Label>
+      <Input
+        value={editUser?.name || ""}
+        onChange={(e) => setEditUser({ ...editUser, name: e.target.value })}
+      />
+      <Label>Email</Label>
+      <Input
+        type="email"
+        value={editUser?.email || ""}
+        onChange={(e) => setEditUser({ ...editUser, email: e.target.value })}
+      />
+      <Label>Role</Label>
+      <Input
+        value={editUser?.role || ""}
+        onChange={(e) => setEditUser({ ...editUser, role: e.target.value })}
+        placeholder="e.g., registered, admin"
+      />
+      <Label>Status</Label>
+<select
+  value={editUser?.status || "active"}
+  onChange={(e) => setEditUser({ ...editUser, status: e.target.value })}
+  className="w-full border rounded px-3 py-2"
+>
+  <option value="active">Active</option>
+  <option value="inactive">Inactive</option>
+</select>
+
+    </div>
+    <DialogFooter>
+      <Button onClick={handleUpdateUser}>Update</Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
+
+
+      {/* Reset Password Dialog */}
+      <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reset Password</DialogTitle>
+          </DialogHeader>
+          <Input
+            type="password"
+            placeholder="New password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            autoFocus
+          />
+          <DialogFooter>
+            <Button onClick={handleResetPassword}>Reset</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
