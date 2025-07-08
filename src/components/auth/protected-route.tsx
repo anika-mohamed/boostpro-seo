@@ -8,7 +8,7 @@ import { Loader2 } from "lucide-react"
 
 interface ProtectedRouteProps {
   children: React.ReactNode
-  requiredPlan?: "guest" | "free" | "basic" | "pro"
+  requiredPlan?: "guest" | "registered" | "pro"
   adminOnly?: boolean
 }
 

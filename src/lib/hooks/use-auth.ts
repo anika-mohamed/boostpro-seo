@@ -17,12 +17,12 @@ export const useAuth = () => {
       firstName: backendUser.name?.split(" ")[0] || "",
       lastName: backendUser.name?.split(" ").slice(1).join(" ") || "",
       email: backendUser.email,
-      plan:
-        backendUser.subscription?.plan === "basic"
-          ? "registered"
-          : backendUser.subscription?.plan === "pro"
-            ? "pro"
-            : "guest",
+      plan: (() => {
+        const rawPlan = backendUser.subscription?.plan?.toLowerCase?.()
+        if (rawPlan === "pro") return "pro"
+        if (rawPlan === "basic") return "registered"
+        return "guest"
+      })(),
       status: backendUser.isActive ? "active" : "inactive",
       joinedAt: backendUser.createdAt || new Date().toISOString(),
       auditCount: backendUser.usage?.auditsThisMonth || 0,

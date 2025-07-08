@@ -26,7 +26,7 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["guest", "registered", "paid", "admin"],
+      enum: ["guest", "registered", "pro", "admin"],
       default: "registered",
     },
     subscription: {
@@ -37,7 +37,7 @@ const userSchema = new mongoose.Schema(
       },
       plan: {
         type: String,
-        enum: ["free", "basic", "pro"],
+        enum: ["free", "registered", "pro"],
         default: "free",
       },
       stripeCustomerId: String,

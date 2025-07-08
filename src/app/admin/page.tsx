@@ -41,7 +41,7 @@ export default function AdminDashboard() {
         setStats(statsRes.data.data)
         const mappedUsers = usersRes.data.data.map(user => ({
           ...user,
-          plan: user.subscription?.plan || "Free",
+          plan: (user.subscription?.plan || "free").toLowerCase(), // Normalize to lowercase
           status: user.isActive ? "active" : "inactive",
         }))
         setUsers(mappedUsers)
@@ -75,6 +75,7 @@ export default function AdminDashboard() {
         email: editUser.email,
         role: editUser.role,
         isActive: editUser.status === "active",
+        plan: editUser.plan?.toLowerCase() || "free",
       }
       const res = await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${editUser._id}`, payload, {
         headers: { Authorization: `Bearer ${token}` },
@@ -286,15 +287,21 @@ export default function AdminDashboard() {
                             </div>
                           </TableCell>
                           <TableCell>
-                          <Badge
-  variant={
-    user.plan === "Pro" ? "default" :
-    user.plan === "registered" ? "secondary" :
-    "outline"
-  }
->
-  {user.plan || "N/A"}
-</Badge>
+                         
+  <Badge
+    variant={
+      user.plan === "Pro"
+        ? "default"
+        : user.plan === "Registered"
+        ? "secondary"
+        : user.plan === "Admin"
+        ? "destructive"
+        : "outline" // fallback for "Free" or unknown
+    }
+  >
+    {user.plan || "Free"}
+  </Badge>
+
                           </TableCell>
                           <TableCell>
                           <Badge variant={user.status === "active" ? "default" : "secondary"}>
