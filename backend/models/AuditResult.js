@@ -85,11 +85,12 @@ const auditResultSchema = new mongoose.Schema(
         types: [String],
         schemas: [
           {
-            type: String,
+            type: { type: String },  
             context: String,
           },
         ],
       },
+      
       canonicalUrl: {
         exists: Boolean,
         url: String,
