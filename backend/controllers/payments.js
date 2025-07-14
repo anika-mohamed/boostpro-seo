@@ -200,7 +200,7 @@ async function handleSubscriptionUpdate(subscription) {
       // Determine plan based on price
       const priceId = subscription.items.data[0].price.id
       if (priceId === process.env.STRIPE_PRICE_ID_BASIC) {
-        user.subscription.plan = "basic"
+        user.subscription.plan = "registered"
         user.role = "paid"
       } else if (priceId === process.env.STRIPE_PRICE_ID_PRO) {
         user.subscription.plan = "pro"

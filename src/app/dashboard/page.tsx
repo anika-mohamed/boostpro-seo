@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 
@@ -9,32 +9,57 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { TrendingUp, Search, BarChart3, Users, FileText, LogOut, Plus } from "lucide-react"
+import {
+  TrendingUp,
+  Search,
+  BarChart3,
+  Users,
+  FileText,
+  LogOut,
+  Plus,
+  ImageIcon,
+} from "lucide-react"
 
 import { useAuth } from "@/lib/hooks/use-auth"
 import { useSeoQueries } from "@/lib/hooks/use-seo-queries"
 import { ProtectedRoute } from "@/components/auth/protected-route"
 
+type AltTagImage = {
+  id: string
+  url: string
+  alt?: string | null
+  description?: string | null
+}
+
 function DashboardContent() {
   const router = useRouter()
   const { user, logout } = useAuth()
   const { useAuditHistory } = useSeoQueries()
-
   const { data: auditHistoryResponse, isLoading: auditsLoading } = useAuditHistory()
 
-  // 🔐 Redirect admin users to their own dashboard
+  // Example alt tag images state (replace with real data fetch)
+  const [altTagImages, setAltTagImages] = useState<AltTagImage[]>([
+    { id: "1", url: "/images/sample1.jpg", alt: null, description: "" },
+    { id: "2", url: "/images/sample2.jpg", alt: null, description: "" },
+    { id: "3", url: "/images/sample3.jpg", alt: null, description: "" },
+  ])
+
+  // Redirect admin users to /admin
   useEffect(() => {
     if (user?.role === "admin") {
       router.push("/admin")
     }
   }, [user, router])
 
-  // Extract data from response
-  const recentAudits = Array.isArray(auditHistoryResponse?.data) ? auditHistoryResponse.data.slice(0, 3) : []
+  const recentAudits = Array.isArray(auditHistoryResponse?.data)
+    ? auditHistoryResponse.data.slice(0, 3)
+    : []
 
   const avgScore =
     recentAudits.length > 0
-      ? Math.round(recentAudits.reduce((sum, audit) => sum + (audit.overallScore || 0), 0) / recentAudits.length)
+      ? Math.round(
+          recentAudits.reduce((sum, audit) => sum + (audit.overallScore || 0), 0) / recentAudits.length,
+        )
       : 0
 
   const planLimits = {
@@ -64,8 +89,8 @@ function DashboardContent() {
               {user?.subscription?.plan === "pro"
                 ? "Pro User"
                 : user?.subscription?.plan === "basic"
-                  ? "Basic User"
-                  : "Free User"}
+                ? "Basic User"
+                : "Free User"}
             </Badge>
             <Link href="/audit">
               <Button>
@@ -139,16 +164,21 @@ function DashboardContent() {
           </Card>
         </div>
 
-        {/* Main Content */}
+        {/* Main Tabs */}
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="audits">Recent Audits</TabsTrigger>
+            <TabsTrigger value="keywords">Keyword Research</TabsTrigger>
+            <TabsTrigger value="competitors">Competitor Analysis</TabsTrigger>
+            <TabsTrigger value="alt-tags">Image ALT Tags</TabsTrigger>
             <TabsTrigger value="upgrade">Upgrade Plan</TabsTrigger>
           </TabsList>
 
+          {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
             <div className="grid gap-6 md:grid-cols-2">
+              {/* Recent Audits Card */}
               <Card>
                 <CardHeader>
                   <CardTitle>Recent Audits</CardTitle>
@@ -170,7 +200,9 @@ function DashboardContent() {
                         <div key={audit._id} className="flex items-center justify-between">
                           <div>
                             <p className="font-medium">{audit.url}</p>
-                            <p className="text-sm text-gray-500">{new Date(audit.createdAt).toLocaleDateString()}</p>
+                            <p className="text-sm text-gray-500">
+                              {new Date(audit.createdAt).toLocaleDateString()}
+                            </p>
                           </div>
                           <div className="text-right">
                             <div className="font-bold">{audit.overallScore}/100</div>
@@ -195,6 +227,7 @@ function DashboardContent() {
                 </CardContent>
               </Card>
 
+              {/* Quick Actions Card */}
               <Card>
                 <CardHeader>
                   <CardTitle>Quick Actions</CardTitle>
@@ -220,6 +253,12 @@ function DashboardContent() {
                         Competitor Analysis
                       </Button>
                     </Link>
+                    <Link href="/alt-tags" className="block">
+                      <Button className="w-full justify-start" variant="outline">
+                        <ImageIcon className="h-4 w-4 mr-2" />
+                        Image ALT Tags
+                      </Button>
+                    </Link>
                     <Link href="/reports" className="block">
                       <Button className="w-full justify-start" variant="outline">
                         <FileText className="h-4 w-4 mr-2" />
@@ -238,7 +277,9 @@ function DashboardContent() {
             </div>
           </TabsContent>
 
+          {/* Audits Tab */}
           <TabsContent value="audits" className="space-y-6">
+            {/* Same audits card content as before */}
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -270,7 +311,9 @@ function DashboardContent() {
                       <div key={audit._id} className="border rounded p-4">
                         <div className="flex items-center justify-between mb-2">
                           <h3 className="font-medium">{audit.url}</h3>
-                          <Badge variant={audit.status === "completed" ? "default" : "secondary"}>{audit.status}</Badge>
+                          <Badge variant={audit.status === "completed" ? "default" : "secondary"}>
+                            {audit.status}
+                          </Badge>
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                           <div>
@@ -308,6 +351,54 @@ function DashboardContent() {
             </Card>
           </TabsContent>
 
+          {/* Keywords Tab */}
+          <TabsContent value="keywords" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Keyword Research</CardTitle>
+                <CardDescription>Analyze and research SEO keywords</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p>This is where keyword research tools and data will appear.</p>
+                {/* You can add your keyword research components here */}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Competitors Tab */}
+          <TabsContent value="competitors" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Competitor Analysis</CardTitle>
+                <CardDescription>Monitor your SEO competitors</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p>This is where competitor analysis tools and data will appear.</p>
+                {/* Add competitor components here */}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Alt Tags Tab */}
+          <TabsContent value="alt-tags" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Image ALT Tags</CardTitle>
+                <CardDescription>Generate and manage SEO-friendly ALT tags for your images.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p>This is where the ALT tag generation UI will be.</p>
+                <Link href="/alt-tags">
+                  <Button className="mt-4">
+                    <ImageIcon className="mr-2 h-4 w-4" />
+                    Go to ALT Tag Generator
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Upgrade Tab */}
           <TabsContent value="upgrade" className="space-y-6">
             <Card>
               <CardHeader>

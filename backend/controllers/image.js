@@ -62,6 +62,36 @@ exports.getAltTagHistory = async (req, res, next) => {
   }
 }
 
+// @desc    Get recent images without ALT text
+// @route   GET /api/image/no-alt
+// @access  Private
+exports.getImagesWithoutAlt = async (req, res, next) => {
+  try {
+    // TODO: Replace this mock data with your actual database query fetching user's images without alt text
+    const images = [
+      {
+        id: "img1",
+        url: "https://example.com/image1.jpg",
+        altText: null,
+      },
+      {
+        id: "img2",
+        url: "https://example.com/image2.jpg",
+        altText: "",
+      },
+      // Add more image objects here as needed
+    ]
+
+    res.status(200).json({
+      success: true,
+      message: "Recent images without ALT text retrieved",
+      data: images,
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
 // Helper function for rule-based alt tag generation
 function generateAltTagsWithRules(descriptions) {
   return descriptions.map((description) => {

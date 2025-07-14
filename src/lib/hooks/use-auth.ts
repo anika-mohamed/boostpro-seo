@@ -20,13 +20,13 @@ export const useAuth = () => {
       plan: (() => {
         const rawPlan = backendUser.subscription?.plan?.toLowerCase?.()
         if (rawPlan === "pro") return "pro"
-        if (rawPlan === "basic") return "registered"
+        if (rawPlan === "registered") return "registered"
         return "guest"
       })(),
       status: backendUser.isActive ? "active" : "inactive",
       joinedAt: backendUser.createdAt || new Date().toISOString(),
       auditCount: backendUser.usage?.auditsThisMonth || 0,
-      maxAudits: backendUser.subscription?.plan === "pro" ? 999 : backendUser.subscription?.plan === "basic" ? 50 : 10,
+      maxAudits: backendUser.subscription?.plan === "pro" ? 999 : backendUser.subscription?.plan === "registered" ? 50 : 10,
       _id: backendUser._id,
       name: backendUser.name,
       role: backendUser.role,

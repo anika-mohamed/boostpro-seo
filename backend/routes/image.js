@@ -1,6 +1,6 @@
 const express = require("express")
 const { body } = require("express-validator")
-const { generateAltTags, getAltTagHistory } = require("../controllers/image")
+const { generateAltTags, getAltTagHistory, getImagesWithoutAlt } = require("../controllers/image")
 
 const { protect, checkSubscription } = require("../middleware/auth")
 
@@ -25,5 +25,8 @@ router.post(
 )
 
 router.get("/alt-tags/history", getAltTagHistory)
+
+// New route to fetch recent images without ALT text
+router.get("/no-alt", getImagesWithoutAlt)
 
 module.exports = router
