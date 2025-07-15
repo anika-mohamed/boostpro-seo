@@ -1,9 +1,10 @@
 const { validationResult } = require("express-validator")
 const { generateAltTags: generateAltTagsAI } = require("../services/aiService")
+const Image = require("../models/image") // your Mongoose model
 
-// @desc    Generate SEO-optimized alt tags
-// @route   POST /api/image/alt-tags
-// @access  Private (Basic subscription required)
+// @desc Generate SEO-optimized alt tags
+// @route POST /api/image/alt-tags
+// @access Private (Basic subscription required)
 exports.generateAltTags = async (req, res, next) => {
   try {
     const errors = validationResult(req)
@@ -16,10 +17,8 @@ exports.generateAltTags = async (req, res, next) => {
     }
 
     const { imageDescriptions } = req.body
-
     let altTags
 
-    // Use AI for pro users, rule-based for others
     if (req.user.subscription.plan === "pro") {
       try {
         altTags = await generateAltTagsAI(imageDescriptions)
@@ -45,13 +44,79 @@ exports.generateAltTags = async (req, res, next) => {
   }
 }
 
-// @desc    Get alt tag generation history
-// @route   GET /api/image/alt-tags/history
-// @access  Private
+// @desc Upload a new image
+// @route POST /api/image/upload
+// @access Private
+exports.uploadImage = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "No file uploaded" })
+    }
+
+    const imageUrl = `/uploads/${req.file.filename}` // Replace with cloud URL if needed
+    const description = req.body.description
+
+    const image = await Image.create({
+      userId: req.user.id,
+      url: imageUrl,
+      description,
+      altText: "",
+    })
+
+    res.status(201).json({ success: true, data: image })
+  } catch (err) {
+    next(err)
+  }
+}
+
+// @desc Get user's recent images without ALT tags
+// @route GET /api/image/no-alt
+// @access Private
+exports.getImagesWithoutAlt = async (req, res, next) => {
+  try {
+    const images = await Image.find({
+      userId: req.user.id,
+      $or: [{ altText: null }, { altText: "" }],
+    })
+      .sort({ createdAt: -1 })
+      .limit(15)
+
+    res.status(200).json({
+      success: true,
+      message: "Images without ALT text retrieved",
+      data: images,
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+// @desc Update an image with generated alt text
+// @route PATCH /api/image/update-alt/:id
+// @access Private
+exports.updateAltText = async (req, res, next) => {
+  try {
+    const { altText } = req.body
+
+    const image = await Image.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user.id },
+      { altText },
+      { new: true }
+    )
+
+    if (!image) {
+      return res.status(404).json({ success: false, message: "Image not found" })
+    }
+
+    res.status(200).json({ success: true, data: image })
+  } catch (err) {
+    next(err)
+  }
+}
+
+// Optional history route if you store them later
 exports.getAltTagHistory = async (req, res, next) => {
   try {
-    // This would typically come from a database
-    // For now, return empty array as we're not storing history
     res.status(200).json({
       success: true,
       message: "Alt tag history retrieved successfully",
@@ -62,58 +127,14 @@ exports.getAltTagHistory = async (req, res, next) => {
   }
 }
 
-// @desc    Get recent images without ALT text
-// @route   GET /api/image/no-alt
-// @access  Private
-exports.getImagesWithoutAlt = async (req, res, next) => {
-  try {
-    // TODO: Replace this mock data with your actual database query fetching user's images without alt text
-    const images = [
-      {
-        id: "img1",
-        url: "https://example.com/image1.jpg",
-        altText: null,
-      },
-      {
-        id: "img2",
-        url: "https://example.com/image2.jpg",
-        altText: "",
-      },
-      // Add more image objects here as needed
-    ]
-
-    res.status(200).json({
-      success: true,
-      message: "Recent images without ALT text retrieved",
-      data: images,
-    })
-  } catch (error) {
-    next(error)
-  }
-}
-
-// Helper function for rule-based alt tag generation
+// Rule-based fallback if not Pro
 function generateAltTagsWithRules(descriptions) {
   return descriptions.map((description) => {
-    // Clean up the description
     let altTag = description.trim()
-
-    // Ensure it starts with a capital letter
     altTag = altTag.charAt(0).toUpperCase() + altTag.slice(1)
-
-    // Remove redundant words
     altTag = altTag.replace(/\b(image of|picture of|photo of)\b/gi, "")
-
-    // Ensure it's under 125 characters
-    if (altTag.length > 125) {
-      altTag = altTag.substring(0, 122) + "..."
-    }
-
-    // Add descriptive words if too short
-    if (altTag.length < 10) {
-      altTag = `Detailed view of ${altTag.toLowerCase()}`
-    }
-
+    if (altTag.length > 125) altTag = altTag.substring(0, 122) + "..."
+    if (altTag.length < 10) altTag = `Detailed view of ${altTag.toLowerCase()}`
     return altTag.trim()
   })
 }
