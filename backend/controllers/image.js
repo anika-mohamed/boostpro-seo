@@ -53,14 +53,14 @@ exports.uploadImage = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "No file uploaded" })
     }
 
-    const imageUrl = `/uploads/${req.file.filename}` // Replace with cloud URL if needed
+    const imageUrl = `/uploads/${req.file.filename}`
     const description = req.body.description
 
     const image = await Image.create({
-      userId: req.user.id,
+      user: req.user.id, // ✅ Must match schema: `user`
       url: imageUrl,
       description,
-      altText: "",
+      altText: "", // default empty until generated
     })
 
     res.status(201).json({ success: true, data: image })
@@ -69,13 +69,14 @@ exports.uploadImage = async (req, res, next) => {
   }
 }
 
+
 // @desc Get user's recent images without ALT tags
 // @route GET /api/image/no-alt
 // @access Private
 exports.getImagesWithoutAlt = async (req, res, next) => {
   try {
     const images = await Image.find({
-      userId: req.user.id,
+      user: req.user.id, // fix here
       $or: [{ altText: null }, { altText: "" }],
     })
       .sort({ createdAt: -1 })
@@ -99,7 +100,7 @@ exports.updateAltText = async (req, res, next) => {
     const { altText } = req.body
 
     const image = await Image.findOneAndUpdate(
-      { _id: req.params.id, userId: req.user.id },
+      { _id: req.params.id, user: req.user.id }, // fix here
       { altText },
       { new: true }
     )

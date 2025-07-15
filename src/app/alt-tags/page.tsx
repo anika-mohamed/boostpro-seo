@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import axios from "axios"
+import apiClient from "@/lib/api/axios"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -16,6 +16,8 @@ type ImageItem = {
   suggestedAlt?: string
 }
 
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5050"
+
 export default function AltTagsPage() {
   const [images, setImages] = useState<ImageItem[]>([])
   const [loading, setLoading] = useState(false)
@@ -23,7 +25,7 @@ export default function AltTagsPage() {
   // 🔄 Load images without ALT text
   const fetchImages = async () => {
     try {
-      const res = await axios.get("/api/image/no-alt")
+      const res = await apiClient.get("/image/no-alt")
       setImages(res.data.data)
     } catch (err) {
       toast.error("Failed to load images")
@@ -34,7 +36,7 @@ export default function AltTagsPage() {
     fetchImages()
   }, [])
 
-  // 🧠 Generate ALT tags for all images
+  // 🧠 Generate ALT tags
   const handleGenerate = async () => {
     const descriptions = images.map((img) => img.description?.trim() || "Image with no description")
 
@@ -44,7 +46,7 @@ export default function AltTagsPage() {
 
     setLoading(true)
     try {
-      const res = await axios.post("/api/image/alt-tags", {
+      const res = await apiClient.post("/image/alt-tags", {
         imageDescriptions: descriptions,
       })
 
@@ -62,7 +64,7 @@ export default function AltTagsPage() {
     }
   }
 
-  // 📤 Handle Image Upload
+  // 📤 Handle image upload
   const handleUpload = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const form = e.currentTarget
@@ -78,7 +80,7 @@ export default function AltTagsPage() {
     formData.append("description", descriptionInput.value)
 
     try {
-      await axios.post("/api/image/upload", formData, {
+      await apiClient.post("/image/upload", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       })
       toast.success("Image uploaded")
@@ -103,7 +105,7 @@ export default function AltTagsPage() {
         <Button type="submit">Upload Image</Button>
       </form>
 
-      {/* Image List */}
+      {/* Image Grid */}
       {images.length === 0 ? (
         <p className="text-muted-foreground">No images found without ALT text.</p>
       ) : (
@@ -111,7 +113,7 @@ export default function AltTagsPage() {
           {images.map((img, idx) => (
             <div key={img._id} className="border p-4 rounded-xl shadow-sm space-y-2">
               <Image
-                src={img.url}
+                src={`${BASE_URL}${img.url}`}
                 alt={img.altText || "Preview"}
                 width={300}
                 height={200}

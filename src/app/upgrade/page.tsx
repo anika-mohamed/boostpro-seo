@@ -119,7 +119,7 @@ export default function UpgradePage() {
       </Button>
     ) : userPlan === "guest" ? (
       <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white">
-  Upgrade to Pro
+  Upgrade to Basic
 </Button>
     ) : null}
   </CardContent>
