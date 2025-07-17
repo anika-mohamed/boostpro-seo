@@ -1,7 +1,7 @@
 const ContentOptimization = require("../models/ContentOptimization")
 const { validationResult } = require("express-validator")
-const { optimizeContentWithAI } = require("../services/aiService")
-const { analyzeContent, calculateReadabilityScore } = require("../services/contentService")
+const { optimizeContentWithAI } = require("../services/aiService") // Ensure this service exists
+const { analyzeContent } = require("../services/contentService") // Removed calculateReadabilityScore as it's not directly used here
 
 // @desc    Optimize content for SEO
 // @route   POST /api/content/optimize
@@ -10,6 +10,7 @@ exports.optimizeContent = async (req, res, next) => {
   try {
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
+      // Explicitly return JSON for validation errors
       return res.status(400).json({
         success: false,
         message: "Validation failed",
@@ -18,6 +19,11 @@ exports.optimizeContent = async (req, res, next) => {
     }
 
     const { content, targetKeywords, title } = req.body
+
+    // Ensure req.user is available from your 'protect' middleware
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ success: false, message: "Not authorized, user not found" })
+    }
 
     // Analyze original content
     const originalAnalysis = analyzeContent(content, targetKeywords)
@@ -34,7 +40,7 @@ exports.optimizeContent = async (req, res, next) => {
         keyword,
         priority: index === 0 ? "primary" : index === 1 ? "secondary" : "tertiary",
       })),
-      optimizedContent: {},
+      optimizedContent: {}, // Will be populated asynchronously
       suggestions: [],
       metadata: {},
       performance: {
@@ -42,12 +48,18 @@ exports.optimizeContent = async (req, res, next) => {
       },
     })
 
-    // Update user usage
-    req.user.usage.contentOptimizationsThisMonth += 1
-    await req.user.save({ validateBeforeSave: false })
+    // Update user usage (assuming req.user has a 'usage' object)
+    if (req.user.usage) {
+      req.user.usage.contentOptimizationsThisMonth = (req.user.usage.contentOptimizationsThisMonth || 0) + 1
+      await req.user.save({ validateBeforeSave: false })
+    } else {
+      console.warn("User usage object not found on req.user. Skipping usage update.")
+    }
 
     // Start optimization process (async)
-    processContentOptimization(optimization._id, content, targetKeywords, title)
+    // This function runs in the background and updates the optimization record
+    // It does NOT send a response back to the client directly.
+    processContentOptimization(optimization._id, content, targetKeywords, title).catch(console.error) // Catch errors from async process
 
     res.status(201).json({
       success: true,
@@ -59,6 +71,7 @@ exports.optimizeContent = async (req, res, next) => {
       },
     })
   } catch (error) {
+    // Pass any caught errors to the global error handler
     next(error)
   }
 }
@@ -71,6 +84,10 @@ exports.getContentHistory = async (req, res, next) => {
     const page = Number.parseInt(req.query.page, 10) || 1
     const limit = Number.parseInt(req.query.limit, 10) || 10
     const startIndex = (page - 1) * limit
+
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ success: false, message: "Not authorized, user not found" })
+    }
 
     const total = await ContentOptimization.countDocuments({ user: req.user.id })
 
@@ -96,6 +113,10 @@ exports.getContentHistory = async (req, res, next) => {
 // @access  Private
 exports.getContentById = async (req, res, next) => {
   try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ success: false, message: "Not authorized, user not found" })
+    }
+
     const optimization = await ContentOptimization.findOne({
       _id: req.params.id,
       user: req.user.id,
@@ -118,17 +139,26 @@ exports.getContentById = async (req, res, next) => {
 }
 
 // Helper function to process content optimization asynchronously
+// This function should ideally be in a separate worker or queue system for production
 async function processContentOptimization(optimizationId, content, targetKeywords, title) {
   try {
     const optimization = await ContentOptimization.findById(optimizationId)
+    if (!optimization) {
+      console.error(`processContentOptimization: Optimization record ${optimizationId} not found.`)
+      return
+    }
 
-    // Use AI to optimize content for pro users
+    // Populate user to check subscription plan
+    const populatedOptimization = await optimization.populate("user")
+    const userPlan = populatedOptimization.user?.subscription?.plan
+
     let optimizedContent = content
-    if (optimization.user && (await optimization.populate("user")).user.subscription.plan === "pro") {
+    if (userPlan === "pro") {
       try {
+        // This function needs to be implemented in your aiService.js
         optimizedContent = await optimizeContentWithAI(content, targetKeywords)
       } catch (error) {
-        console.error("AI optimization failed, using rule-based optimization:", error.message)
+        console.error("AI optimization failed, falling back to rule-based optimization:", error.message)
         optimizedContent = optimizeContentWithRules(content, targetKeywords)
       }
     } else {
@@ -159,27 +189,27 @@ async function processContentOptimization(optimizationId, content, targetKeyword
     optimization.performance.improvement = optimizedAnalysis.seoScore - optimization.performance.beforeScore
 
     await optimization.save()
+    console.log(`Content optimization ${optimizationId} completed successfully.`)
   } catch (error) {
-    console.error("Content optimization processing error:", error)
+    console.error(`Content optimization processing error for ID ${optimizationId}:`, error)
+    // You might want to update the optimization record with an error status here
+    // e.g., await ContentOptimization.findByIdAndUpdate(optimizationId, { status: 'failed', errorMessage: error.message });
   }
 }
 
-// Helper function for rule-based content optimization
+// Helper function for rule-based content optimization (your existing logic)
 function optimizeContentWithRules(content, targetKeywords) {
   let optimized = content
 
-  // Add keywords naturally if they're missing
   targetKeywords.forEach((keyword, index) => {
     const keywordRegex = new RegExp(`\\b${keyword}\\b`, "gi")
     const matches = optimized.match(keywordRegex) || []
 
-    // Target density: 1-2% for primary keyword, 0.5-1% for others
     const targetDensity = index === 0 ? 0.015 : 0.008
     const wordCount = optimized.split(/\s+/).length
     const targetOccurrences = Math.ceil(wordCount * targetDensity)
 
     if (matches.length < targetOccurrences) {
-      // Add keyword naturally in a few places
       const sentences = optimized.split(". ")
       const insertPositions = [
         Math.floor(sentences.length * 0.2),
@@ -200,11 +230,10 @@ function optimizeContentWithRules(content, targetKeywords) {
   return optimized
 }
 
-// Helper function to generate content suggestions
+// Helper function to generate content suggestions (your existing logic)
 function generateContentSuggestions(original, optimized, keywords) {
   const suggestions = []
 
-  // Check keyword usage
   keywords.forEach((keyword) => {
     const originalMatches = (original.match(new RegExp(`\\b${keyword}\\b`, "gi")) || []).length
     const optimizedMatches = (optimized.match(new RegExp(`\\b${keyword}\\b`, "gi")) || []).length
@@ -218,7 +247,6 @@ function generateContentSuggestions(original, optimized, keywords) {
     }
   })
 
-  // Check content structure
   const originalParagraphs = original.split("\n\n").length
   const optimizedParagraphs = optimized.split("\n\n").length
 
@@ -230,7 +258,6 @@ function generateContentSuggestions(original, optimized, keywords) {
     })
   }
 
-  // General suggestions
   suggestions.push({
     type: "readability",
     suggestion: "Consider adding subheadings (H2, H3) to improve readability",
@@ -246,10 +273,10 @@ function generateContentSuggestions(original, optimized, keywords) {
   return suggestions
 }
 
-// Helper function to generate metadata
+// Helper function to generate metadata (your existing logic)
 function generateMetadata(content, keywords, originalTitle) {
   const primaryKeyword = keywords[0]
-  const contentWords = content.split(/\s+/)
+  // const contentWords = content.split(/\s+/) // Not used, can be removed
 
   return {
     suggestedTitle: originalTitle || `${primaryKeyword} - Complete Guide and Best Practices`,

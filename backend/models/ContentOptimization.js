@@ -4,7 +4,7 @@ const contentOptimizationSchema = new mongoose.Schema(
   {
     user: {
       type: mongoose.Schema.ObjectId,
-      ref: "User",
+      ref: "User", // Ensure you have a 'User' model defined
       required: true,
     },
     originalContent: {
@@ -64,10 +64,10 @@ const contentOptimizationSchema = new mongoose.Schema(
     },
   },
   {
-    timestamps: true,
+    timestamps: true, // Adds createdAt and updatedAt fields
   },
 )
 
-contentOptimizationSchema.index({ user: 1, createdAt: -1 })
+contentOptimizationSchema.index({ user: 1, createdAt: -1 }) // Index for faster queries
 
 module.exports = mongoose.model("ContentOptimization", contentOptimizationSchema)
