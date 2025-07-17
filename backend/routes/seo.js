@@ -2,7 +2,7 @@ const express = require("express")
 const { body } = require("express-validator")
 const { auditWebsite, getAuditHistory, getAuditById, generateSwotAnalysis, deleteAudit } = require("../controllers/seo")
 
-const { protect, checkSubscription, checkUsageLimit } = require("../middleware/auth")
+const { protect, authorize, checkSubscription, checkUsageLimit } = require("../middleware/auth")
 
 const router = express.Router()
 

@@ -1,3 +1,4 @@
+
 const { validationResult } = require("express-validator")
 const { generateAltTags: generateAltTagsAI } = require("../services/aiService")
 const Image = require("../models/image") // your Mongoose model

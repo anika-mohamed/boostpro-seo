@@ -8,24 +8,40 @@ const ContentOptimization = require("../models/ContentOptimization")
 // @access  Private/Admin
 exports.createUser = async (req, res, next) => {
   try {
-    const { name, email, password, role } = req.body
+    let { name, email, password, role, subscription, company, website } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({
         success: false,
         message: "Name, email, and password are required",
-      })
+      });
     }
 
-    const existingUser = await User.findOne({ email })
+    // Normalize role
+    role = role === "registered" ? "basic" : role || "free";
+
+    const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({
         success: false,
         message: "User with this email already exists",
-      })
+      });
     }
 
-    const user = await User.create({ name, email, password, role })
+    const user = await User.create({
+      name,
+      email,
+      password,
+      role,
+      subscription: {
+        plan: subscription?.plan || "free",
+        status: subscription?.status || "inactive",
+      },
+      profile: {
+        company: company || "",
+        website: website || "",
+      },
+    });
 
     res.status(201).json({
       success: true,
@@ -35,12 +51,14 @@ exports.createUser = async (req, res, next) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        subscription: user.subscription,
+        profile: user.profile,
       },
-    })
+    });
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
 
 // @desc    Get all users / Fetch users
 // @route   GET /api/admin/users
@@ -117,14 +135,20 @@ exports.getUserById = async (req, res, next) => {
 // @access  Private/Admin
 exports.updateUser = async (req, res, next) => {
   try {
+    let { name, email, role, isActive, emailVerified } = req.body;
+
+    // Normalize role
+    role = role === "registered" ? "basic" : role;
+
     const fieldsToUpdate = {
-      name: req.body.name,
-      email: req.body.email,
-      role: req.body.role,
-      isActive: req.body.isActive, // <- this is status from frontend
-      emailVerified: req.body.emailVerified,
+      name,
+      email,
+      role,
+      isActive,
+      emailVerified,
     }
 
+    // Remove undefined fields
     Object.keys(fieldsToUpdate).forEach((key) => {
       if (fieldsToUpdate[key] === undefined) delete fieldsToUpdate[key]
     })

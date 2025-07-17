@@ -176,7 +176,7 @@ const runSeed = async () => {
   console.log("\n📋 Test Accounts:")
   console.log("Admin: admin@seoboostpro.com / admin123")
   console.log("User: john@example.com / password123")
-  console.log("Basic: jane@example.com / password123")
+  console.log("Registered: jane@example.com / password123")
   console.log("Pro: pro@example.com / password123")
 
   process.exit(0)

@@ -18,7 +18,14 @@ import { toast } from "sonner"
 export default function AdminDashboard() {
   const [searchTerm, setSearchTerm] = useState("")
   const [openDialog, setOpenDialog] = useState(false)
-  const [newUser, setNewUser] = useState({ name: "", email: "", password: "" })
+  const [newUser, setNewUser] = useState({
+    name: "",
+    email: "",
+    password: "",
+    plan: "free",
+    company: "",
+    website: "",
+  })
   const [stats, setStats] = useState({ totalUsers: 0, activeUsers: 0, totalRevenue: 0, auditsThisMonth: 0 })
   const [users, setUsers] = useState([])
   const [selectedUser, setSelectedUser] = useState(null)
@@ -29,41 +36,67 @@ export default function AdminDashboard() {
   const [newPassword, setNewPassword] = useState("")
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false)
 
+  // Normalize users for consistent display
+  const normalizeUsers = (users) =>
+    users.map((user) => ({
+      ...user,
+      plan: (user.subscription?.plan || "free").toLowerCase(),
+      status: user.isActive ? "active" : "inactive",
+    }))
+
+  const fetchUsers = async () => {
+    const token = localStorage.getItem("token")
+    const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/admin/users`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    return normalizeUsers(res.data.data)
+  }
+
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         const token = localStorage.getItem("token")
-        const [statsRes, usersRes] = await Promise.all([
-          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/admin/stats/dashboard`, { headers: { Authorization: `Bearer ${token}` } }),
-          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/admin/users`, { headers: { Authorization: `Bearer ${token}` } }),
+        const [statsRes, usersList] = await Promise.all([
+          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/admin/stats/dashboard`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetchUsers(),
         ])
-
         setStats(statsRes.data.data)
-        const mappedUsers = usersRes.data.data.map(user => ({
-          ...user,
-          plan: (user.subscription?.plan || "free").toLowerCase(), // Normalize to lowercase
-          status: user.isActive ? "active" : "inactive",
-        }))
-        setUsers(mappedUsers)
+        setUsers(usersList)
       } catch (err) {
-        toast.error("Failed to fetch dashboard data", { description: err?.response?.data?.message || "Check your server/API" })
+        toast.error("Failed to fetch dashboard data", {
+          description: err?.response?.data?.message || "Check your server/API",
+        })
       }
     }
-
     fetchDashboardData()
   }, [])
 
   const handleCreateUser = async () => {
     try {
       const token = localStorage.getItem("token")
-      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/admin/users`, newUser, { headers: { Authorization: `Bearer ${token}` } })
+      await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/admin/users`,
+        {
+          name: newUser.name,
+          email: newUser.email,
+          password: newUser.password,
+          role: "basic",
+          subscription: { plan: newUser.plan, status: "active" },
+          profile: { company: newUser.company, website: newUser.website },
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
       toast.success("User created successfully")
       setOpenDialog(false)
-      setNewUser({ name: "", email: "", password: "" })
-      const usersRes = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/admin/users`, { headers: { Authorization: `Bearer ${token}` } })
-      setUsers(usersRes.data.data)
+      setNewUser({ name: "", email: "", password: "", plan: "free", company: "", website: "" })
+      const updatedUsers = await fetchUsers()
+      setUsers(updatedUsers)
     } catch (err) {
-      toast.error("Error creating user", { description: err?.response?.data?.message || "Something went wrong" })
+      toast.error("Error creating user", {
+        description: err?.response?.data?.message || "Something went wrong",
+      })
     }
   }
 
@@ -75,51 +108,57 @@ export default function AdminDashboard() {
         email: editUser.email,
         role: editUser.role,
         isActive: editUser.status === "active",
-        plan: editUser.plan?.toLowerCase() || "free",
+        subscription: { plan: editUser.role },
       }
-      const res = await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${editUser._id}`, payload, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      const res = await axios.put(
+        `${process.env.NEXT_PUBLIC_API_URL}/admin/users/${editUser._id}`,
+        payload,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
       toast.success("User updated successfully")
       setIsEditDialogOpen(false)
-      const updatedUser = res.data.data
-      setUsers(prevUsers =>
-        prevUsers.map(user =>
-          user._id === updatedUser._id
-            ? { ...user, ...updatedUser, status: updatedUser.isActive ? "active" : "inactive", plan: updatedUser.subscription?.plan || user.plan || "Free" }
-            : user
-        )
-      )
+      const updatedUsers = await fetchUsers()
+      setUsers(updatedUsers)
     } catch (err) {
-      toast.error("Failed to update user", { description: err?.response?.data?.message || "Something went wrong" })
+      toast.error("Failed to update user", {
+        description: err?.response?.data?.message || "Something went wrong",
+      })
     }
   }
 
   const handleResetPassword = async () => {
     try {
       const token = localStorage.getItem("token")
-      await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${resetUser._id}`, { password: newPassword }, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      await axios.put(
+        `${process.env.NEXT_PUBLIC_API_URL}/admin/users/${resetUser._id}`,
+        { password: newPassword },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
       toast.success("Password reset successfully")
       setIsResetDialogOpen(false)
       setNewPassword("")
     } catch (err) {
-      toast.error("Failed to reset password", { description: err?.response?.data?.message || "Something went wrong" })
+      toast.error("Failed to reset password", {
+        description: err?.response?.data?.message || "Something went wrong",
+      })
     }
   }
 
   const handleDeactivateUser = async (userId) => {
     try {
       const token = localStorage.getItem("token")
-      await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${userId}`, { isActive: false }, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      await axios.put(
+        `${process.env.NEXT_PUBLIC_API_URL}/admin/users/${userId}`,
+        { isActive: false },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
       toast.success("User deactivated successfully")
-      const usersRes = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/admin/users`, { headers: { Authorization: `Bearer ${token}` } })
-      setUsers(usersRes.data.data)
+      const updatedUsers = await fetchUsers()
+      setUsers(updatedUsers)
     } catch (err) {
-      toast.error("Failed to deactivate user", { description: err?.response?.data?.message || "Something went wrong" })
+      toast.error("Failed to deactivate user", {
+        description: err?.response?.data?.message || "Something went wrong",
+      })
     }
   }
 
@@ -168,6 +207,30 @@ export default function AdminDashboard() {
                     onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
                   />
                 </div>
+
+                <Label>Company (optional)</Label>
+                <Input
+                  value={newUser.company}
+                  onChange={(e) => setNewUser({ ...newUser, company: e.target.value })}
+                />
+
+                <Label>Website (optional)</Label>
+                <Input
+                  value={newUser.website}
+                  onChange={(e) => setNewUser({ ...newUser, website: e.target.value })}
+                />
+
+                <Label>Plan</Label>
+                <select
+                  value={newUser.plan}
+                  onChange={(e) => setNewUser({ ...newUser, plan: e.target.value })}
+                  className="w-full border rounded px-3 py-2"
+                >
+                  <option value="free">Free</option>
+                  <option value="registered">Registered</option>
+                  <option value="pro">Pro</option>
+                </select>
+
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
                   <Input
@@ -274,9 +337,10 @@ export default function AdminDashboard() {
                   </TableHeader>
                   <TableBody>
                     {(users || [])
-                      .filter((user) =>
-                        user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        user.email.toLowerCase().includes(searchTerm.toLowerCase())
+                      .filter(
+                        (user) =>
+                          user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          user.email.toLowerCase().includes(searchTerm.toLowerCase())
                       )
                       .map((user) => (
                         <TableRow key={user._id}>
@@ -287,26 +351,24 @@ export default function AdminDashboard() {
                             </div>
                           </TableCell>
                           <TableCell>
-                         
-  <Badge
-    variant={
-      user.plan === "Pro"
-        ? "default"
-        : user.plan === "Registered"
-        ? "secondary"
-        : user.plan === "Admin"
-        ? "destructive"
-        : "outline" // fallback for "Free" or unknown
-    }
-  >
-    {user.plan || "Free"}
-  </Badge>
-
+                            <Badge
+                              variant={
+                                user.role === "pro"
+                                  ? "default"
+                                  : user.role === "basic"
+                                  ? "secondary"
+                                  : user.role === "admin"
+                                  ? "destructive"
+                                  : "outline"
+                              }
+                            >
+                              {user.role || "free"}
+                            </Badge>
                           </TableCell>
                           <TableCell>
-                          <Badge variant={user.status === "active" ? "default" : "secondary"}>
-  {user.status || "unknown"}
-</Badge>
+                            <Badge variant={user.status === "active" ? "default" : "secondary"}>
+                              {user.status || "unknown"}
+                            </Badge>
                           </TableCell>
                           <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
                           <TableCell className="text-right">
@@ -357,8 +419,7 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
           </TabsContent>
-
-          {/* Analytics & Settings tab contents can be added here */}
+          {/* Analytics & Settings tabs can be added later */}
         </Tabs>
       </div>
 
@@ -369,13 +430,25 @@ export default function AdminDashboard() {
             <DialogTitle>User Details</DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
-            <p><strong>Name:</strong> {selectedUser?.name}</p>
-            <p><strong>Email:</strong> {selectedUser?.email}</p>
-            <p><strong>Password:</strong> {selectedUser?.password || "******"}</p>
-            <p><strong>Role:</strong> {selectedUser?.role}</p>
-            <p><strong>Email Verified:</strong> {selectedUser?.emailVerified ? "Yes" : "No"}</p>
-            <p><strong>Company:</strong> {selectedUser?.profile?.company || "-"}</p>
-            <p><strong>Website:</strong> {selectedUser?.profile?.website || "-"}</p>
+            <p>
+              <strong>Name:</strong> {selectedUser?.name}
+            </p>
+            <p>
+              <strong>Email:</strong> {selectedUser?.email}
+            </p>
+            {/* Do not display password for security */}
+            <p>
+              <strong>Role:</strong> {selectedUser?.role}
+            </p>
+            <p>
+              <strong>Email Verified:</strong> {selectedUser?.emailVerified ? "Yes" : "No"}
+            </p>
+            <p>
+              <strong>Company:</strong> {selectedUser?.profile?.company || "-"}
+            </p>
+            <p>
+              <strong>Website:</strong> {selectedUser?.profile?.website || "-"}
+            </p>
           </div>
           <DialogFooter>
             <Button onClick={() => setIsViewDialogOpen(false)}>Close</Button>
@@ -385,45 +458,47 @@ export default function AdminDashboard() {
 
       {/* Edit User Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-  <DialogContent>
-    <DialogHeader>
-      <DialogTitle>Edit User</DialogTitle>
-    </DialogHeader>
-    <div className="space-y-4">
-      <Label>Name</Label>
-      <Input
-        value={editUser?.name || ""}
-        onChange={(e) => setEditUser({ ...editUser, name: e.target.value })}
-      />
-      <Label>Email</Label>
-      <Input
-        type="email"
-        value={editUser?.email || ""}
-        onChange={(e) => setEditUser({ ...editUser, email: e.target.value })}
-      />
-      <Label>Role</Label>
-      <Input
-        value={editUser?.role || ""}
-        onChange={(e) => setEditUser({ ...editUser, role: e.target.value })}
-        placeholder="e.g., registered, admin"
-      />
-      <Label>Status</Label>
-<select
-  value={editUser?.status || "active"}
-  onChange={(e) => setEditUser({ ...editUser, status: e.target.value })}
-  className="w-full border rounded px-3 py-2"
->
-  <option value="active">Active</option>
-  <option value="inactive">Inactive</option>
-</select>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+          </DialogHeader>
 
-    </div>
-    <DialogFooter>
-      <Button onClick={handleUpdateUser}>Update</Button>
-    </DialogFooter>
-  </DialogContent>
-</Dialog>
+          {editUser && (
+            <div className="space-y-4">
+              <Label>Name</Label>
+              <Input
+                value={editUser.name || ""}
+                onChange={(e) => setEditUser({ ...editUser, name: e.target.value })}
+              />
+              <Label>Email</Label>
+              <Input
+                type="email"
+                value={editUser.email || ""}
+                onChange={(e) => setEditUser({ ...editUser, email: e.target.value })}
+              />
+              <Label>Role</Label>
+              <Input
+                value={editUser.role || ""}
+                onChange={(e) => setEditUser({ ...editUser, role: e.target.value })}
+                placeholder="e.g., basic, pro, admin"
+              />
+              <Label>Status</Label>
+              <select
+                value={editUser.status || "active"}
+                onChange={(e) => setEditUser({ ...editUser, status: e.target.value })}
+                className="w-full border rounded px-3 py-2"
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+          )}
 
+          <DialogFooter>
+            <Button onClick={handleUpdateUser}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Reset Password Dialog */}
       <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
@@ -431,13 +506,15 @@ export default function AdminDashboard() {
           <DialogHeader>
             <DialogTitle>Reset Password</DialogTitle>
           </DialogHeader>
-          <Input
-            type="password"
-            placeholder="New password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            autoFocus
-          />
+          <div>
+            <Label>New Password</Label>
+            <Input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Enter new password"
+            />
+          </div>
           <DialogFooter>
             <Button onClick={handleResetPassword}>Reset</Button>
           </DialogFooter>
