@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Progress } from "@/components/ui/progress"
 import { toast } from "sonner"
 import {
   FileText,
@@ -20,6 +19,8 @@ import {
   CheckCircle,
   AlertCircle,
   Clock,
+  Globe,
+  Activity,
 } from "lucide-react"
 import Link from "next/link"
 import { ProtectedRoute } from "@/components/auth/protected-route"
@@ -51,6 +52,20 @@ interface ReportData {
     topIssues: string[]
     recommendations: string[]
   }
+  progressTracking?: {
+    historicalData: any[]
+    currentTrend: {
+      scoreImprovement: number
+      totalIssuesResolved: number
+      averageMonthlyAudits: number
+    }
+  }
+  rankingPredictions?: {
+    predictions: any[]
+    currentPosition: number
+    projectedPosition: number
+    estimatedTrafficGain: number
+  }
 }
 
 function ReportsPageContent() {
@@ -68,7 +83,7 @@ function ReportsPageContent() {
       seoApi.generateReport(auditIds, reportType),
     onSuccess: (data) => {
       setGeneratedReport(data.data)
-      toast.success("Report generated successfully!")
+      toast.success("Comprehensive report generated successfully!")
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || "Failed to generate report")
@@ -98,12 +113,10 @@ function ReportsPageContent() {
 
         toast.success("Report downloaded successfully!")
       } catch (error) {
-        console.error("Download error:", error)
         toast.error("Failed to download report")
       }
     },
     onError: (error: any) => {
-      console.error("Download mutation error:", error)
       toast.error(error.response?.data?.message || "Failed to download report")
     },
   })
@@ -201,8 +214,10 @@ function ReportsPageContent() {
               <FileText className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">Reports & Progress Tracking</h1>
-              <p className="text-gray-600">Generate comprehensive reports and track your SEO progress over time</p>
+              <h1 className="text-2xl font-bold">Comprehensive SEO Reports</h1>
+              <p className="text-gray-600">
+                Generate detailed reports with real website data, progress tracking and ranking predictions
+              </p>
             </div>
           </div>
         </div>
@@ -319,7 +334,9 @@ function ReportsPageContent() {
                         <CheckCircle className="h-5 w-5 text-green-500" />
                         <div>
                           <p className="font-medium">{audit.url}</p>
-                          <p className="text-sm text-gray-500">{new Date(audit.createdAt).toLocaleDateString()}</p>
+                          <p className="text-sm text-gray-500">
+                            {audit.domain} • {new Date(audit.createdAt).toLocaleDateString()}
+                          </p>
                         </div>
                       </div>
                       <div className="text-right">
@@ -452,7 +469,8 @@ function ReportsPageContent() {
                   <CardHeader>
                     <CardTitle>Generate Comprehensive SEO Report</CardTitle>
                     <p className="text-sm text-gray-600">
-                      Create detailed reports with technical analysis, SWOT analysis, and actionable recommendations
+                      Create detailed reports with real website data, technical analysis, SWOT analysis, progress
+                      tracking, and ranking predictions
                     </p>
                   </CardHeader>
                   <CardContent className="space-y-6">
@@ -478,7 +496,7 @@ function ReportsPageContent() {
                             onChange={(e) => setReportType(e.target.value as "comprehensive")}
                           />
                           <span>Comprehensive Report</span>
-                          <span className="text-xs text-gray-500">(Full technical details, SWOT analysis)</span>
+                          <span className="text-xs text-gray-500">(Full details + Progress + Predictions)</span>
                         </label>
                       </div>
                     </div>
@@ -514,9 +532,13 @@ function ReportsPageContent() {
                                 onCheckedChange={(checked) => handleAuditSelection(audit._id, checked as boolean)}
                               />
                               <div className="flex-1">
-                                <p className="font-medium">{audit.url}</p>
+                                <div className="flex items-center space-x-2">
+                                  <Globe className="h-4 w-4 text-gray-400" />
+                                  <p className="font-medium">{audit.url}</p>
+                                </div>
                                 <p className="text-sm text-gray-500">
-                                  {new Date(audit.createdAt).toLocaleDateString()} • Score: {audit.overallScore}/100
+                                  {audit.domain} • {new Date(audit.createdAt).toLocaleDateString()} • Score:{" "}
+                                  {audit.overallScore}/100
                                 </p>
                               </div>
                               <Badge variant={audit.status === "completed" ? "default" : "secondary"}>
@@ -545,7 +567,7 @@ function ReportsPageContent() {
                       {generateReportMutation.isPending ? (
                         <>
                           <Clock className="h-4 w-4 mr-2 animate-spin" />
-                          Generating Report...
+                          Generating Comprehensive Report...
                         </>
                       ) : (
                         <>
@@ -554,6 +576,24 @@ function ReportsPageContent() {
                         </>
                       )}
                     </Button>
+
+                    {reportType === "comprehensive" && (
+                      <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border">
+                        <h4 className="font-medium text-blue-800 mb-2 flex items-center">
+                          <Activity className="h-4 w-4 mr-2" />
+                          Comprehensive Report Includes:
+                        </h4>
+                        <ul className="text-sm text-blue-700 space-y-1">
+                          <li>• Complete technical SEO analysis with REAL website names and data</li>
+                          <li>• SWOT analysis for each audited website</li>
+                          <li>• Progress tracking charts and historical data</li>
+                          <li>• 6-month ranking predictions and traffic forecasts</li>
+                          <li>• Performance benchmarks and Core Web Vitals</li>
+                          <li>• Prioritized recommendations with impact estimates</li>
+                          <li>• 30-60-90 day action plan for implementation</li>
+                        </ul>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </>
@@ -566,10 +606,11 @@ function ReportsPageContent() {
                       <div>
                         <CardTitle className="flex items-center space-x-2">
                           <CheckCircle className="h-5 w-5 text-green-500" />
-                          SEO Report Generated
+                          Comprehensive SEO Report Generated
                         </CardTitle>
                         <p className="text-sm text-gray-600">
-                          {generatedReport.reportType} report for {generatedReport.audits.length} audit(s)
+                          {generatedReport.reportType} report for {generatedReport.audits.length} website(s) with
+                          progress tracking and predictions
                         </p>
                       </div>
                       <div className="flex space-x-2">
@@ -592,7 +633,7 @@ function ReportsPageContent() {
                     <div className="grid gap-4 md:grid-cols-4 mb-6">
                       <div className="text-center p-4 bg-blue-50 rounded-lg">
                         <div className="text-2xl font-bold text-blue-600">{generatedReport.summary.totalAudits}</div>
-                        <div className="text-sm text-gray-600">Total Audits</div>
+                        <div className="text-sm text-gray-600">Websites Analyzed</div>
                       </div>
                       <div className="text-center p-4 bg-green-50 rounded-lg">
                         <div className="text-2xl font-bold text-green-600">{generatedReport.summary.avgScore}</div>
@@ -609,6 +650,91 @@ function ReportsPageContent() {
                           {generatedReport.summary.issuesByCategory.warning}
                         </div>
                         <div className="text-sm text-gray-600">Warnings</div>
+                      </div>
+                    </div>
+
+                    {/* Progress Tracking Summary */}
+                    {generatedReport.progressTracking && (
+                      <div className="mb-6 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg">
+                        <h3 className="text-lg font-semibold mb-3 flex items-center">
+                          <TrendingUp className="h-5 w-5 text-indigo-500 mr-2" />
+                          Progress Tracking Included
+                        </h3>
+                        <div className="grid gap-4 md:grid-cols-3">
+                          <div className="text-center">
+                            <div className="text-xl font-bold text-indigo-600">
+                              +{generatedReport.progressTracking.currentTrend.scoreImprovement}
+                            </div>
+                            <div className="text-sm text-gray-600">Score Improvement</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-xl font-bold text-purple-600">
+                              {generatedReport.progressTracking.currentTrend.averageMonthlyAudits}
+                            </div>
+                            <div className="text-sm text-gray-600">Avg Monthly Audits</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-xl font-bold text-green-600">
+                              {generatedReport.progressTracking.currentTrend.totalIssuesResolved}
+                            </div>
+                            <div className="text-sm text-gray-600">Issues Identified</div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Ranking Predictions Summary */}
+                    {generatedReport.rankingPredictions && (
+                      <div className="mb-6 p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg">
+                        <h3 className="text-lg font-semibold mb-3 flex items-center">
+                          <Target className="h-5 w-5 text-green-500 mr-2" />
+                          Ranking Predictions Included
+                        </h3>
+                        <div className="grid gap-4 md:grid-cols-3">
+                          <div className="text-center">
+                            <div className="text-xl font-bold text-blue-600">
+                              #{generatedReport.rankingPredictions.currentPosition}
+                            </div>
+                            <div className="text-sm text-gray-600">Current Position</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-xl font-bold text-green-600">
+                              #{generatedReport.rankingPredictions.projectedPosition}
+                            </div>
+                            <div className="text-sm text-gray-600">6-Month Projection</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-xl font-bold text-purple-600">
+                              +{generatedReport.rankingPredictions.estimatedTrafficGain.toLocaleString()}
+                            </div>
+                            <div className="text-sm text-gray-600">Traffic Gain</div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Analyzed Websites */}
+                    <div className="mb-6">
+                      <h3 className="text-lg font-semibold mb-3 flex items-center">
+                        <Globe className="h-5 w-5 text-blue-500 mr-2" />
+                        Analyzed Websites (Real Data)
+                      </h3>
+                      <div className="space-y-2">
+                        {generatedReport.audits.map((audit, index) => (
+                          <div key={audit._id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded">
+                            <span className="text-blue-500 font-bold">{index + 1}.</span>
+                            <div className="flex-1">
+                              <p className="font-medium">{audit.url}</p>
+                              <p className="text-sm text-gray-500">{audit.domain}</p>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-bold">{audit.overallScore}/100</div>
+                              <Badge variant={audit.status === "completed" ? "default" : "secondary"}>
+                                {audit.status}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
 
@@ -646,77 +772,10 @@ function ReportsPageContent() {
                   </CardContent>
                 </Card>
 
-                {/* Detailed Audit Results */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Detailed Audit Results</CardTitle>
-                    <p className="text-sm text-gray-600">Individual analysis for each selected website</p>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-6">
-                      {generatedReport.audits.map((audit, index) => (
-                        <div key={audit._id} className="border rounded-lg p-4 bg-gray-50">
-                          <div className="flex items-center justify-between mb-4">
-                            <div>
-                              <h4 className="font-medium text-lg">{audit.url}</h4>
-                              <p className="text-sm text-gray-500">
-                                Audited on {new Date(audit.createdAt).toLocaleDateString()}
-                              </p>
-                            </div>
-                            <div className="flex items-center space-x-4">
-                              <div className="text-right">
-                                <div className="text-2xl font-bold">{audit.overallScore}/100</div>
-                                <Progress value={audit.overallScore} className="w-20 h-2 mt-1" />
-                              </div>
-                              <Badge variant={audit.status === "completed" ? "default" : "secondary"}>
-                                {audit.status}
-                              </Badge>
-                            </div>
-                          </div>
-
-                          <div className="grid gap-4 md:grid-cols-2">
-                            <div className="space-y-2">
-                              <h5 className="font-medium text-sm text-gray-700">Performance Scores</h5>
-                              <div className="text-xs space-y-1">
-                                <div className="flex justify-between">
-                                  <span>Desktop:</span>
-                                  <span className="font-medium">{audit.overallScore}/100</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span>Mobile:</span>
-                                  <span className="font-medium">{Math.max(0, audit.overallScore - 10)}/100</span>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="space-y-2">
-                              <h5 className="font-medium text-sm text-gray-700">Issue Summary</h5>
-                              <div className="text-xs space-y-1">
-                                <div className="flex justify-between">
-                                  <span className="text-red-600">Critical:</span>
-                                  <span className="font-medium">{Math.floor(Math.random() * 5) + 1}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-yellow-600">Warning:</span>
-                                  <span className="font-medium">{Math.floor(Math.random() * 8) + 2}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-blue-600">Info:</span>
-                                  <span className="font-medium">{Math.floor(Math.random() * 10) + 3}</span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-
                 {/* Report Actions */}
                 <Card>
                   <CardHeader>
-                    <CardTitle>Report Actions</CardTitle>
+                    <CardTitle>Download Your Comprehensive Report</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="flex flex-col sm:flex-row gap-4">
@@ -735,15 +794,20 @@ function ReportsPageContent() {
                       </Button>
                     </div>
 
-                    <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                      <h4 className="font-medium text-blue-800 mb-2">What's included in your comprehensive report:</h4>
+                    <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg">
+                      <h4 className="font-medium text-blue-800 mb-2">Your comprehensive PDF report includes:</h4>
                       <ul className="text-sm text-blue-700 space-y-1">
-                        <li>• Complete technical SEO analysis with detailed metrics</li>
+                        <li>
+                          • Complete technical SEO analysis with REAL website names:{" "}
+                          {generatedReport.audits.map((a) => a.domain).join(", ")}
+                        </li>
                         <li>• SWOT analysis for each audited website</li>
-                        <li>• Performance benchmarks and Core Web Vitals</li>
+                        <li>• Progress tracking charts and historical performance data</li>
+                        <li>• 6-month ranking predictions and traffic forecasts</li>
+                        <li>• Performance benchmarks and Core Web Vitals analysis</li>
                         <li>• Prioritized recommendations with impact estimates</li>
-                        <li>• 30-60-90 day action plan for implementation</li>
-                        <li>• Detailed issue breakdown with solutions</li>
+                        <li>• Comprehensive 30-60-90 day action plan</li>
+                        <li>• Expected outcomes and success metrics</li>
                       </ul>
                     </div>
                   </CardContent>
