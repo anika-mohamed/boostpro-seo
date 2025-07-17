@@ -42,6 +42,12 @@ app.use("/api/seo", seoRoutes)
 const adminRoutes = require("./routes/admin")
 app.use("/api/admin", adminRoutes)
 
+const reportRoutes = require("./routes/reports")
+app.use("/api/reports", reportRoutes)
+
+app.use("/reports/download", express.static(path.join(__dirname, "public", "reports")))
+
+
 // ✅ Global error handler
 app.use((err, req, res, next) => {
   console.error(err.stack)

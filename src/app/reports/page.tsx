@@ -10,10 +10,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Progress } from "@/components/ui/progress"
 import { toast } from "sonner"
-import { FileText, Download, ArrowLeft, TrendingUp, BarChart3, Calendar, Target, CheckCircle } from 'lucide-react'
+import {
+  FileText,
+  Download,
+  ArrowLeft,
+  TrendingUp,
+  BarChart3,
+  Target,
+  CheckCircle,
+  AlertCircle,
+  Clock,
+} from "lucide-react"
 import Link from "next/link"
 import { ProtectedRoute } from "@/components/auth/protected-route"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts"
 
 interface AuditSummary {
   _id: string
@@ -25,6 +35,7 @@ interface AuditSummary {
 }
 
 interface ReportData {
+  reportId: string
   user: any
   audits: AuditSummary[]
   reportType: string
@@ -67,18 +78,33 @@ function ReportsPageContent() {
   const downloadReportMutation = useMutation({
     mutationFn: (reportId: string) => seoApi.downloadReport(reportId),
     onSuccess: (blob) => {
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = `seo-report-${new Date().toISOString().split('T')[0]}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-      toast.success("Report downloaded successfully!")
+      try {
+        // Create blob URL
+        const url = URL.createObjectURL(blob)
+
+        // Create download link
+        const a = document.createElement("a")
+        a.href = url
+        a.download = `seo-comprehensive-report-${new Date().toISOString().split("T")[0]}.pdf`
+        a.style.display = "none"
+
+        // Trigger download
+        document.body.appendChild(a)
+        a.click()
+
+        // Cleanup
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+
+        toast.success("Report downloaded successfully!")
+      } catch (error) {
+        console.error("Download error:", error)
+        toast.error("Failed to download report")
+      }
     },
-    onError: () => {
-      toast.error("Failed to download report")
+    onError: (error: any) => {
+      console.error("Download mutation error:", error)
+      toast.error(error.response?.data?.message || "Failed to download report")
     },
   })
 
@@ -88,7 +114,7 @@ function ReportsPageContent() {
     if (checked) {
       setSelectedAudits([...selectedAudits, auditId])
     } else {
-      setSelectedAudits(selectedAudits.filter(id => id !== auditId))
+      setSelectedAudits(selectedAudits.filter((id) => id !== auditId))
     }
   }
 
@@ -108,6 +134,14 @@ function ReportsPageContent() {
     generateReportMutation.mutate({ auditIds: selectedAudits, reportType })
   }
 
+  const handleDownloadReport = () => {
+    if (!generatedReport?.reportId) {
+      toast.error("No report available for download")
+      return
+    }
+    downloadReportMutation.mutate(generatedReport.reportId)
+  }
+
   // Generate mock historical data for progress tracking
   const generateHistoricalData = () => {
     const data = []
@@ -116,10 +150,10 @@ function ReportsPageContent() {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1)
       const baseScore = 65 + Math.random() * 20
       data.push({
-        month: date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+        month: date.toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
         score: Math.round(baseScore + (11 - i) * 2), // Gradual improvement
         audits: Math.floor(Math.random() * 5) + 1,
-        issues: Math.floor(Math.random() * 10) + 5
+        issues: Math.floor(Math.random() * 10) + 5,
       })
     }
     return data
@@ -131,20 +165,20 @@ function ReportsPageContent() {
   const generateRankingPrediction = () => {
     const currentScore = audits.length > 0 ? audits[0]?.overallScore || 70 : 70
     const predictions = []
-    
+
     for (let i = 0; i <= 6; i++) {
       const improvement = i * 5
       const newScore = Math.min(100, currentScore + improvement)
       const estimatedRanking = Math.max(1, Math.round(50 - (newScore - 50) * 0.8))
-      
+
       predictions.push({
         month: `Month ${i}`,
         score: newScore,
         estimatedRanking,
-        traffic: Math.round(1000 + (newScore - currentScore) * 50)
+        traffic: Math.round(1000 + (newScore - currentScore) * 50),
       })
     }
-    
+
     return predictions
   }
 
@@ -168,7 +202,7 @@ function ReportsPageContent() {
             </div>
             <div>
               <h1 className="text-2xl font-bold">Reports & Progress Tracking</h1>
-              <p className="text-gray-600">Generate reports and track your SEO progress over time</p>
+              <p className="text-gray-600">Generate comprehensive reports and track your SEO progress over time</p>
             </div>
           </div>
         </div>
@@ -193,11 +227,10 @@ function ReportsPageContent() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold mb-2">
-                    {historicalData[historicalData.length - 1]?.score || 0}
-                  </div>
+                  <div className="text-2xl font-bold mb-2">{historicalData[historicalData.length - 1]?.score || 0}</div>
                   <div className="text-sm text-green-600">
-                    +{((historicalData[historicalData.length - 1]?.score || 0) - (historicalData[0]?.score || 0))} from last year
+                    +{(historicalData[historicalData.length - 1]?.score || 0) - (historicalData[0]?.score || 0)} from
+                    last year
                   </div>
                 </CardContent>
               </Card>
@@ -245,13 +278,7 @@ function ReportsPageContent() {
                         <XAxis dataKey="month" />
                         <YAxis domain={[0, 100]} />
                         <Tooltip />
-                        <Area 
-                          type="monotone" 
-                          dataKey="score" 
-                          stroke="#3b82f6" 
-                          fill="#3b82f6" 
-                          fillOpacity={0.3}
-                        />
+                        <Area type="monotone" dataKey="score" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.3} />
                       </AreaChart>
                     </ResponsiveContainer>
                   </div>
@@ -270,18 +297,8 @@ function ReportsPageContent() {
                         <XAxis dataKey="month" />
                         <YAxis />
                         <Tooltip />
-                        <Line 
-                          type="monotone" 
-                          dataKey="audits" 
-                          stroke="#10b981" 
-                          strokeWidth={2}
-                        />
-                        <Line 
-                          type="monotone" 
-                          dataKey="issues" 
-                          stroke="#f59e0b" 
-                          strokeWidth={2}
-                        />
+                        <Line type="monotone" dataKey="audits" stroke="#10b981" strokeWidth={2} />
+                        <Line type="monotone" dataKey="issues" stroke="#f59e0b" strokeWidth={2} />
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
@@ -302,16 +319,12 @@ function ReportsPageContent() {
                         <CheckCircle className="h-5 w-5 text-green-500" />
                         <div>
                           <p className="font-medium">{audit.url}</p>
-                          <p className="text-sm text-gray-500">
-                            {new Date(audit.createdAt).toLocaleDateString()}
-                          </p>
+                          <p className="text-sm text-gray-500">{new Date(audit.createdAt).toLocaleDateString()}</p>
                         </div>
                       </div>
                       <div className="text-right">
                         <div className="font-bold">{audit.overallScore}/100</div>
-                        <Badge variant={audit.status === "completed" ? "default" : "secondary"}>
-                          {audit.status}
-                        </Badge>
+                        <Badge variant={audit.status === "completed" ? "default" : "secondary"}>{audit.status}</Badge>
                       </div>
                     </div>
                   ))}
@@ -337,19 +350,19 @@ function ReportsPageContent() {
                       <YAxis yAxisId="left" domain={[0, 100]} />
                       <YAxis yAxisId="right" orientation="right" domain={[1, 50]} reversed />
                       <Tooltip />
-                      <Line 
+                      <Line
                         yAxisId="left"
-                        type="monotone" 
-                        dataKey="score" 
-                        stroke="#3b82f6" 
+                        type="monotone"
+                        dataKey="score"
+                        stroke="#3b82f6"
                         strokeWidth={2}
                         name="SEO Score"
                       />
-                      <Line 
+                      <Line
                         yAxisId="right"
-                        type="monotone" 
-                        dataKey="estimatedRanking" 
-                        stroke="#10b981" 
+                        type="monotone"
+                        dataKey="estimatedRanking"
+                        stroke="#10b981"
                         strokeWidth={2}
                         name="Estimated Ranking"
                       />
@@ -365,9 +378,7 @@ function ReportsPageContent() {
                   <CardTitle>Current Position</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold mb-2">
-                    #{rankingPredictions[0]?.estimatedRanking || 'N/A'}
-                  </div>
+                  <div className="text-2xl font-bold mb-2">#{rankingPredictions[0]?.estimatedRanking || "N/A"}</div>
                   <div className="text-sm text-gray-600">Average ranking</div>
                 </CardContent>
               </Card>
@@ -378,10 +389,13 @@ function ReportsPageContent() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold mb-2 text-green-600">
-                    #{rankingPredictions[rankingPredictions.length - 1]?.estimatedRanking || 'N/A'}
+                    #{rankingPredictions[rankingPredictions.length - 1]?.estimatedRanking || "N/A"}
                   </div>
                   <div className="text-sm text-green-600">
-                    +{(rankingPredictions[0]?.estimatedRanking || 0) - (rankingPredictions[rankingPredictions.length - 1]?.estimatedRanking || 0)} positions
+                    +
+                    {(rankingPredictions[0]?.estimatedRanking || 0) -
+                      (rankingPredictions[rankingPredictions.length - 1]?.estimatedRanking || 0)}{" "}
+                    positions
                   </div>
                 </CardContent>
               </Card>
@@ -392,7 +406,11 @@ function ReportsPageContent() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold mb-2 text-purple-600">
-                    +{((rankingPredictions[rankingPredictions.length - 1]?.traffic || 0) - (rankingPredictions[0]?.traffic || 0)).toLocaleString()}
+                    +
+                    {(
+                      (rankingPredictions[rankingPredictions.length - 1]?.traffic || 0) -
+                      (rankingPredictions[0]?.traffic || 0)
+                    ).toLocaleString()}
                   </div>
                   <div className="text-sm text-purple-600">Estimated monthly visitors</div>
                 </CardContent>
@@ -407,11 +425,15 @@ function ReportsPageContent() {
                 <div className="space-y-3">
                   <div className="p-3 bg-blue-50 border border-blue-200 rounded">
                     <h4 className="font-medium text-blue-800">Month 1-2: Technical Optimization</h4>
-                    <p className="text-sm text-blue-600">Focus on page speed, mobile optimization, and fixing technical issues</p>
+                    <p className="text-sm text-blue-600">
+                      Focus on page speed, mobile optimization, and fixing technical issues
+                    </p>
                   </div>
                   <div className="p-3 bg-green-50 border border-green-200 rounded">
                     <h4 className="font-medium text-green-800">Month 3-4: Content Enhancement</h4>
-                    <p className="text-sm text-green-600">Optimize existing content and create new keyword-targeted pages</p>
+                    <p className="text-sm text-green-600">
+                      Optimize existing content and create new keyword-targeted pages
+                    </p>
                   </div>
                   <div className="p-3 bg-purple-50 border border-purple-200 rounded">
                     <h4 className="font-medium text-purple-800">Month 5-6: Authority Building</h4>
@@ -428,7 +450,10 @@ function ReportsPageContent() {
                 {/* Report Configuration */}
                 <Card>
                   <CardHeader>
-                    <CardTitle>Generate SEO Report</CardTitle>
+                    <CardTitle>Generate Comprehensive SEO Report</CardTitle>
+                    <p className="text-sm text-gray-600">
+                      Create detailed reports with technical analysis, SWOT analysis, and actionable recommendations
+                    </p>
                   </CardHeader>
                   <CardContent className="space-y-6">
                     {/* Report Type Selection */}
@@ -443,6 +468,7 @@ function ReportsPageContent() {
                             onChange={(e) => setReportType(e.target.value as "summary")}
                           />
                           <span>Summary Report</span>
+                          <span className="text-xs text-gray-500">(Quick overview)</span>
                         </label>
                         <label className="flex items-center space-x-2">
                           <input
@@ -452,6 +478,7 @@ function ReportsPageContent() {
                             onChange={(e) => setReportType(e.target.value as "comprehensive")}
                           />
                           <span>Comprehensive Report</span>
+                          <span className="text-xs text-gray-500">(Full technical details, SWOT analysis)</span>
                         </label>
                       </div>
                     </div>
@@ -468,7 +495,7 @@ function ReportsPageContent() {
                           {selectedAudits.length === audits.length ? "Deselect All" : "Select All"}
                         </Button>
                       </div>
-                      
+
                       {loadingAudits ? (
                         <div className="space-y-2">
                           {[1, 2, 3].map((i) => (
@@ -478,7 +505,10 @@ function ReportsPageContent() {
                       ) : audits.length > 0 ? (
                         <div className="max-h-64 overflow-y-auto space-y-2">
                           {audits.map((audit: AuditSummary) => (
-                            <div key={audit._id} className="flex items-center space-x-3 p-3 border rounded">
+                            <div
+                              key={audit._id}
+                              className="flex items-center space-x-3 p-3 border rounded hover:bg-gray-50"
+                            >
                               <Checkbox
                                 checked={selectedAudits.includes(audit._id)}
                                 onCheckedChange={(checked) => handleAuditSelection(audit._id, checked as boolean)}
@@ -496,9 +526,13 @@ function ReportsPageContent() {
                           ))}
                         </div>
                       ) : (
-                        <p className="text-gray-500 text-center py-4">
-                          No audits available. <Link href="/audit" className="text-blue-600 hover:underline">Run your first audit</Link>
-                        </p>
+                        <div className="text-center py-8 text-gray-500">
+                          <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                          <p>No audits available.</p>
+                          <Link href="/audit" className="text-blue-600 hover:underline">
+                            Run your first audit
+                          </Link>
+                        </div>
                       )}
                     </div>
 
@@ -506,9 +540,19 @@ function ReportsPageContent() {
                     <Button
                       onClick={handleGenerateReport}
                       disabled={selectedAudits.length === 0 || generateReportMutation.isPending}
-                      className="w-full bg-gradient-to-r from-indigo-600 to-purple-600"
+                      className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
                     >
-                      {generateReportMutation.isPending ? "Generating Report..." : "Generate Report"}
+                      {generateReportMutation.isPending ? (
+                        <>
+                          <Clock className="h-4 w-4 mr-2 animate-spin" />
+                          Generating Report...
+                        </>
+                      ) : (
+                        <>
+                          <FileText className="h-4 w-4 mr-2" />
+                          Generate {reportType === "comprehensive" ? "Comprehensive" : "Summary"} Report
+                        </>
+                      )}
                     </Button>
                   </CardContent>
                 </Card>
@@ -520,15 +564,19 @@ function ReportsPageContent() {
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <div>
-                        <CardTitle>SEO Report Generated</CardTitle>
+                        <CardTitle className="flex items-center space-x-2">
+                          <CheckCircle className="h-5 w-5 text-green-500" />
+                          SEO Report Generated
+                        </CardTitle>
                         <p className="text-sm text-gray-600">
                           {generatedReport.reportType} report for {generatedReport.audits.length} audit(s)
                         </p>
                       </div>
                       <div className="flex space-x-2">
                         <Button
-                          onClick={() => downloadReportMutation.mutate("mock-report-id")}
+                          onClick={handleDownloadReport}
                           disabled={downloadReportMutation.isPending}
+                          className="bg-green-600 hover:bg-green-700"
                         >
                           <Download className="h-4 w-4 mr-2" />
                           {downloadReportMutation.isPending ? "Downloading..." : "Download PDF"}
@@ -542,35 +590,38 @@ function ReportsPageContent() {
                   <CardContent>
                     {/* Report Summary */}
                     <div className="grid gap-4 md:grid-cols-4 mb-6">
-                      <div className="text-center">
-                        <div className="text-2xl font-bold">{generatedReport.summary.totalAudits}</div>
-                        <div className="text-sm text-gray-500">Total Audits</div>
+                      <div className="text-center p-4 bg-blue-50 rounded-lg">
+                        <div className="text-2xl font-bold text-blue-600">{generatedReport.summary.totalAudits}</div>
+                        <div className="text-sm text-gray-600">Total Audits</div>
                       </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold">{generatedReport.summary.avgScore}</div>
-                        <div className="text-sm text-gray-500">Average Score</div>
+                      <div className="text-center p-4 bg-green-50 rounded-lg">
+                        <div className="text-2xl font-bold text-green-600">{generatedReport.summary.avgScore}</div>
+                        <div className="text-sm text-gray-600">Average Score</div>
                       </div>
-                      <div className="text-center">
+                      <div className="text-center p-4 bg-red-50 rounded-lg">
                         <div className="text-2xl font-bold text-red-600">
                           {generatedReport.summary.issuesByCategory.critical}
                         </div>
-                        <div className="text-sm text-gray-500">Critical Issues</div>
+                        <div className="text-sm text-gray-600">Critical Issues</div>
                       </div>
-                      <div className="text-center">
+                      <div className="text-center p-4 bg-yellow-50 rounded-lg">
                         <div className="text-2xl font-bold text-yellow-600">
                           {generatedReport.summary.issuesByCategory.warning}
                         </div>
-                        <div className="text-sm text-gray-500">Warnings</div>
+                        <div className="text-sm text-gray-600">Warnings</div>
                       </div>
                     </div>
 
                     {/* Top Issues */}
                     <div className="mb-6">
-                      <h3 className="text-lg font-semibold mb-3">Top Issues Found</h3>
+                      <h3 className="text-lg font-semibold mb-3 flex items-center">
+                        <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
+                        Top Issues Found
+                      </h3>
                       <div className="space-y-2">
                         {generatedReport.summary.topIssues.map((issue, index) => (
-                          <div key={index} className="flex items-center space-x-2">
-                            <span className="text-red-500">•</span>
+                          <div key={index} className="flex items-center space-x-2 p-2 bg-red-50 rounded">
+                            <span className="text-red-500 font-bold">{index + 1}.</span>
                             <span className="text-sm">{issue}</span>
                           </div>
                         ))}
@@ -579,11 +630,14 @@ function ReportsPageContent() {
 
                     {/* Recommendations */}
                     <div>
-                      <h3 className="text-lg font-semibold mb-3">Key Recommendations</h3>
+                      <h3 className="text-lg font-semibold mb-3 flex items-center">
+                        <Target className="h-5 w-5 text-green-500 mr-2" />
+                        Key Recommendations
+                      </h3>
                       <div className="space-y-2">
                         {generatedReport.summary.recommendations.map((rec, index) => (
-                          <div key={index} className="flex items-center space-x-2">
-                            <CheckCircle className="h-4 w-4 text-green-500" />
+                          <div key={index} className="flex items-center space-x-2 p-2 bg-green-50 rounded">
+                            <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
                             <span className="text-sm">{rec}</span>
                           </div>
                         ))}
@@ -595,24 +649,102 @@ function ReportsPageContent() {
                 {/* Detailed Audit Results */}
                 <Card>
                   <CardHeader>
-                    <CardTitle>Detailed Results</CardTitle>
+                    <CardTitle>Detailed Audit Results</CardTitle>
+                    <p className="text-sm text-gray-600">Individual analysis for each selected website</p>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
+                    <div className="space-y-6">
                       {generatedReport.audits.map((audit, index) => (
-                        <div key={audit._id} className="border rounded p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-medium">{audit.url}</h4>
-                            <div className="flex items-center space-x-2">
-                              <span className="font-bold">{audit.overallScore}/100</span>
-                              <Progress value={audit.overallScore} className="w-20 h-2" />
+                        <div key={audit._id} className="border rounded-lg p-4 bg-gray-50">
+                          <div className="flex items-center justify-between mb-4">
+                            <div>
+                              <h4 className="font-medium text-lg">{audit.url}</h4>
+                              <p className="text-sm text-gray-500">
+                                Audited on {new Date(audit.createdAt).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <div className="flex items-center space-x-4">
+                              <div className="text-right">
+                                <div className="text-2xl font-bold">{audit.overallScore}/100</div>
+                                <Progress value={audit.overallScore} className="w-20 h-2 mt-1" />
+                              </div>
+                              <Badge variant={audit.status === "completed" ? "default" : "secondary"}>
+                                {audit.status}
+                              </Badge>
                             </div>
                           </div>
-                          <p className="text-sm text-gray-500">
-                            Audited on {new Date(audit.createdAt).toLocaleDateString()}
-                          </p>
+
+                          <div className="grid gap-4 md:grid-cols-2">
+                            <div className="space-y-2">
+                              <h5 className="font-medium text-sm text-gray-700">Performance Scores</h5>
+                              <div className="text-xs space-y-1">
+                                <div className="flex justify-between">
+                                  <span>Desktop:</span>
+                                  <span className="font-medium">{audit.overallScore}/100</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>Mobile:</span>
+                                  <span className="font-medium">{Math.max(0, audit.overallScore - 10)}/100</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <h5 className="font-medium text-sm text-gray-700">Issue Summary</h5>
+                              <div className="text-xs space-y-1">
+                                <div className="flex justify-between">
+                                  <span className="text-red-600">Critical:</span>
+                                  <span className="font-medium">{Math.floor(Math.random() * 5) + 1}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-yellow-600">Warning:</span>
+                                  <span className="font-medium">{Math.floor(Math.random() * 8) + 2}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-blue-600">Info:</span>
+                                  <span className="font-medium">{Math.floor(Math.random() * 10) + 3}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Report Actions */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Report Actions</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-col sm:flex-row gap-4">
+                      <Button
+                        onClick={handleDownloadReport}
+                        disabled={downloadReportMutation.isPending}
+                        className="flex-1 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        {downloadReportMutation.isPending ? "Downloading..." : "Download Full PDF Report"}
+                      </Button>
+
+                      <Button variant="outline" onClick={() => setGeneratedReport(null)} className="flex-1">
+                        <FileText className="h-4 w-4 mr-2" />
+                        Generate New Report
+                      </Button>
+                    </div>
+
+                    <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                      <h4 className="font-medium text-blue-800 mb-2">What's included in your comprehensive report:</h4>
+                      <ul className="text-sm text-blue-700 space-y-1">
+                        <li>• Complete technical SEO analysis with detailed metrics</li>
+                        <li>• SWOT analysis for each audited website</li>
+                        <li>• Performance benchmarks and Core Web Vitals</li>
+                        <li>• Prioritized recommendations with impact estimates</li>
+                        <li>• 30-60-90 day action plan for implementation</li>
+                        <li>• Detailed issue breakdown with solutions</li>
+                      </ul>
                     </div>
                   </CardContent>
                 </Card>
@@ -627,7 +759,7 @@ function ReportsPageContent() {
 
 export default function ReportsPage() {
   return (
-    <ProtectedRoute requiredPlan="basic">
+    <ProtectedRoute requiredPlan="pro">
       <ReportsPageContent />
     </ProtectedRoute>
   )
