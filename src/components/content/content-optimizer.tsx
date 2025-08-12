@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Loader2, Target, FileText, BarChart3 } from "lucide-react"
-import { OptimizedContent } from "./optimized-content"
 import { Badge } from "@/components/ui/badge"
+import { Loader2, FileText, BarChart3, Plus, X, Sparkles, RefreshCw } from "lucide-react"
+import { OptimizedContent } from "./optimized-content"
 import { toast } from "sonner"
 
 interface OptimizationResult {
@@ -29,15 +29,16 @@ interface OptimizationResult {
 }
 
 function getScoreColor(score: number): string {
-  if (score > 70) return "text-green-600"
-  if (score > 50) return "text-yellow-600"
+  if (score >= 80) return "text-green-600"
+  if (score >= 60) return "text-yellow-600"
   return "text-red-600"
 }
 
 function getScoreLabel(score: number): string {
-  if (score > 70) return "Good"
-  if (score > 50) return "Average"
-  return "Poor"
+  if (score >= 80) return "Excellent"
+  if (score >= 60) return "Good"
+  if (score >= 40) return "Fair"
+  return "Needs Improvement"
 }
 
 interface ContentAnalysisProps {
@@ -61,20 +62,20 @@ const ContentAnalysis = ({ analysis }: ContentAnalysisProps) => {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <BarChart3 className="h-5 w-5" />
-          Content Analysis
+          Original Content Analysis
         </CardTitle>
-        <CardDescription>Detailed analysis of your content</CardDescription>
+        <CardDescription>Analysis of your original content before optimization</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
-          <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border">
+          <div className="text-center p-4 bg-gradient-to-br from-red-50 to-red-100 rounded-lg border">
             <div className={`text-2xl font-bold ${getScoreColor(analysis.seoScore)}`}>{analysis.seoScore}/100</div>
-            <div className="text-sm text-gray-600">SEO Score</div>
+            <div className="text-sm text-gray-600">Current SEO Score</div>
             <Badge variant="outline" className="mt-1">
               {getScoreLabel(analysis.seoScore)}
             </Badge>
           </div>
-          <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg border">
+          <div className="text-center p-4 bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg border">
             <div className={`text-2xl font-bold ${getScoreColor(analysis.readabilityScore)}`}>
               {analysis.readabilityScore}/100
             </div>
@@ -91,20 +92,34 @@ const ContentAnalysis = ({ analysis }: ContentAnalysisProps) => {
             <div className="text-sm text-gray-600">Word Count</div>
           </div>
           <div className="text-center p-4 rounded-lg border">
-            <div className="text-2xl font-bold">{analysis.avgWordsPerSentence.toFixed(1)}</div>
+            <div className="text-2xl font-bold">{analysis.avgWordsPerSentence}</div>
             <div className="text-sm text-gray-600">Avg. Words/Sentence</div>
           </div>
         </div>
 
         <div>
-          <h3 className="text-lg font-semibold mb-2">Keyword Density</h3>
-          <ul className="list-disc list-inside">
-            {analysis.keywordDensity.map((item) => (
-              <li key={item.keyword}>
-                {item.keyword}: {item.density.toFixed(2)}% ({item.count} times)
-              </li>
+          <h3 className="text-lg font-semibold mb-2">Current Keyword Density</h3>
+          <div className="space-y-2">
+            {analysis.keywordDensity.map((item, index) => (
+              <div key={index} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                <span className="font-medium">{item.keyword}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600">{item.count} times</span>
+                  <Badge variant={item.density >= 0.5 && item.density <= 2.5 ? "default" : "secondary"}>
+                    {item.density}%
+                  </Badge>
+                </div>
+              </div>
             ))}
-          </ul>
+          </div>
+        </div>
+
+        <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+          <p className="text-sm text-blue-800">
+            <Sparkles className="h-4 w-4 inline mr-1" />
+            Your content will be completely rewritten and optimized for better SEO performance while maintaining the
+            original meaning.
+          </p>
         </div>
       </CardContent>
     </Card>
@@ -117,7 +132,6 @@ export function ContentOptimizer() {
   const [keywords, setKeywords] = useState<string[]>([""])
   const [isOptimizing, setIsOptimizing] = useState(false)
   const [optimizationResult, setOptimizationResult] = useState<OptimizationResult | null>(null)
-  const [error, setError] = useState("") // Corrected: Removed /*error,*/
 
   const addKeyword = () => {
     if (keywords.length < 5) {
@@ -138,8 +152,6 @@ export function ContentOptimizer() {
   }
 
   const handleOptimize = async () => {
-    setError("") // Reset error state
-
     // Validation
     if (content.length < 100) {
       toast.error("Content must be at least 100 characters long")
@@ -159,7 +171,6 @@ export function ContentOptimizer() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`, // Adjust based on your auth
         },
         body: JSON.stringify({
           content,
@@ -169,45 +180,27 @@ export function ContentOptimizer() {
       })
 
       if (!response.ok) {
-        let errorBody: any
-        try {
-          // Attempt to parse as JSON first
-          errorBody = await response.json()
-        } catch (jsonError) {
-          // If JSON parsing fails, read as text (likely HTML error page)
-          errorBody = await response.text()
-          console.error("Server returned non-JSON response (likely HTML error page):", errorBody)
-          toast.error("A server error occurred. Please check the console for details (server returned HTML).")
-          throw new Error("Server returned non-JSON response (likely HTML error page)")
-        }
-
-        let errorMessage = errorBody.message || "An unknown error occurred during optimization."
-
-        if (errorBody.errors && Array.isArray(errorBody.errors)) {
-          errorMessage += "\n" + errorBody.errors.map((err: any) => err.msg || err.message).join("\n")
-        }
-        toast.error(errorMessage)
-        throw new Error(errorMessage) // Still throw for internal logging
+        const errorData = await response.json().catch(() => ({ message: "Server error occurred" }))
+        toast.error(errorData.message || "Failed to start content regeneration")
+        return
       }
 
       const result = await response.json()
       setOptimizationResult(result.data)
-    } catch (err) {
-      // This catch block will now handle errors thrown by the `if (!response.ok)` block
-      // and any other network errors. The specific error message is already toasted.
-      if (err instanceof Error) {
-        console.error("Optimization failed:", err.message)
-      } else {
-        console.error("Optimization failed:", err)
-      }
-      // Only show a generic toast if no specific error was already toasted
-      if (!error) {
-        // Check if error state was set by a specific message
-        toast.error("Failed to optimize content. Please try again.")
-      }
+      toast.success("Content regeneration started! Your content is being completely rewritten with SEO optimization.")
+    } catch (error) {
+      console.error("Optimization failed:", error)
+      toast.error("Failed to start content regeneration. Please try again.")
     } finally {
       setIsOptimizing(false)
     }
+  }
+
+  const resetForm = () => {
+    setContent("")
+    setTitle("")
+    setKeywords([""])
+    setOptimizationResult(null)
   }
 
   const wordCount = content.split(/\s+/).filter((word) => word.length > 0).length
@@ -224,7 +217,9 @@ export function ContentOptimizer() {
               <FileText className="h-5 w-5" />
               Content Input
             </CardTitle>
-            <CardDescription>Enter your content and target keywords for SEO optimization</CardDescription>
+            <CardDescription>
+              Enter your content and target keywords. We'll completely rewrite it with SEO optimization.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
@@ -239,10 +234,10 @@ export function ContentOptimizer() {
             </div>
 
             <div>
-              <Label htmlFor="content">Content *</Label>
+              <Label htmlFor="content">Original Content *</Label>
               <Textarea
                 id="content"
-                placeholder="Paste your article, blog post, or content here..."
+                placeholder="Paste your article, blog post, or content here. We'll rewrite it with SEO optimization while keeping the original meaning..."
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 className="min-h-[300px] resize-none"
@@ -275,13 +270,14 @@ export function ContentOptimizer() {
                     />
                     {keywords.length > 1 && (
                       <Button type="button" variant="outline" size="sm" onClick={() => removeKeyword(index)}>
-                        Remove
+                        <X className="h-4 w-4" />
                       </Button>
                     )}
                   </div>
                 ))}
                 {keywords.length < 5 && (
                   <Button type="button" variant="outline" size="sm" onClick={addKeyword}>
+                    <Plus className="h-4 w-4 mr-2" />
                     Add Keyword
                   </Button>
                 )}
@@ -289,24 +285,51 @@ export function ContentOptimizer() {
               <p className="text-sm text-gray-500 mt-1">{validKeywords.length}/5 keywords added</p>
             </div>
 
-            <Button
-              onClick={handleOptimize}
-              disabled={isOptimizing || !isContentValid || validKeywords.length === 0}
-              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-              size="lg"
-            >
-              {isOptimizing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Optimizing Content...
-                </>
-              ) : (
-                <>
-                  <Target className="mr-2 h-4 w-4" />
-                  Optimize Content
-                </>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleOptimize}
+                disabled={isOptimizing || !isContentValid || validKeywords.length === 0}
+                className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                size="lg"
+              >
+                {isOptimizing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Regenerating Content...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Regenerate with SEO
+                  </>
+                )}
+              </Button>
+
+              {optimizationResult && (
+                <Button
+                  onClick={resetForm}
+                  variant="outline"
+                  size="lg"
+                  className="border-blue-200 hover:bg-blue-50 bg-transparent"
+                >
+                  New Content
+                </Button>
               )}
-            </Button>
+            </div>
+
+            <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border">
+              <h4 className="font-semibold text-sm mb-2 flex items-center gap-2">
+                <Sparkles className="h-4 w-4" />
+                What happens next?
+              </h4>
+              <ul className="text-sm text-gray-700 space-y-1">
+                <li>• Your content will be completely rewritten</li>
+                <li>• Keywords will be naturally integrated</li>
+                <li>• SEO structure will be optimized</li>
+                <li>• Original meaning will be preserved</li>
+                <li>• Readability will be improved</li>
+              </ul>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -325,12 +348,15 @@ export function ContentOptimizer() {
                 <BarChart3 className="h-5 w-5" />
                 Content Analysis
               </CardTitle>
-              <CardDescription>Your content analysis will appear here after optimization</CardDescription>
+              <CardDescription>Your content analysis will appear here after regeneration</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="text-center py-12 text-gray-500">
-                <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Enter your content and click "Optimize Content" to see detailed analysis</p>
+                <RefreshCw className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p className="font-medium mb-2">Ready to Transform Your Content?</p>
+                <p className="text-sm">
+                  Enter your content and keywords to get a completely rewritten, SEO-optimized version
+                </p>
               </div>
             </CardContent>
           </Card>

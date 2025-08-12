@@ -5,16 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
-import { History, Search, TrendingUp, Calendar, FileText, Target } from "lucide-react"
-import { format } from "@/lib/date-fns"
+import { History, Search, TrendingUp, Calendar, FileText, Target, Loader2 } from "lucide-react"
 
 interface HistoryItem {
   _id: string
@@ -30,6 +21,7 @@ interface HistoryItem {
     afterScore: number
   }
   createdAt: string
+  status: string
 }
 
 export function ContentHistory() {
@@ -37,7 +29,6 @@ export function ContentHistory() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
 
   useEffect(() => {
@@ -46,17 +37,15 @@ export function ContentHistory() {
 
   const fetchHistory = async () => {
     try {
-      const response = await fetch(`/api/content/history?page=${currentPage}&limit=10`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      })
+      setLoading(true)
+      const response = await fetch(`/api/content/history?page=${currentPage}&limit=10`)
 
       if (response.ok) {
         const result = await response.json()
         setHistory(result.data)
         setTotal(result.total)
-        setTotalPages(Math.ceil(result.total / 10))
+      } else {
+        console.error("Failed to fetch history")
       }
     } catch (error) {
       console.error("Failed to fetch history:", error)
@@ -78,6 +67,35 @@ export function ContentHistory() {
     return "text-gray-600 bg-gradient-to-r from-gray-50 to-gray-100"
   }
 
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    })
+  }
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "completed":
+        return (
+          <Badge variant="default" className="bg-green-100 text-green-800">
+            Completed
+          </Badge>
+        )
+      case "processing":
+        return (
+          <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+            Processing
+          </Badge>
+        )
+      case "failed":
+        return <Badge variant="destructive">Failed</Badge>
+      default:
+        return <Badge variant="outline">{status}</Badge>
+    }
+  }
+
   if (loading) {
     return (
       <Card className="border-0 shadow-xl">
@@ -89,11 +107,8 @@ export function ContentHistory() {
         </CardHeader>
         <CardContent>
           <div className="text-center py-12">
-            <div className="animate-pulse space-y-4">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="h-16 bg-gray-200 rounded"></div>
-              ))}
-            </div>
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+            <p className="text-gray-600">Loading your optimization history...</p>
           </div>
         </CardContent>
       </Card>
@@ -143,8 +158,9 @@ export function ContentHistory() {
                         <h3 className="font-semibold text-lg">{item.originalContent.title || "Untitled Content"}</h3>
                         <Badge variant="outline" className="text-xs">
                           <Calendar className="h-3 w-3 mr-1" />
-                          {format(new Date(item.createdAt), "MMM dd, yyyy")}
+                          {formatDate(item.createdAt)}
                         </Badge>
+                        {getStatusBadge(item.status)}
                       </div>
 
                       <div className="flex items-center gap-4 mb-3">
@@ -172,9 +188,13 @@ export function ContentHistory() {
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <div className={`px-3 py-1 rounded-full text-sm font-medium ${getImprovementColor(improvement)}`}>
-                        <TrendingUp className="h-3 w-3 inline mr-1" />+{improvement}
-                      </div>
+                      {item.status === "completed" && (
+                        <div
+                          className={`px-3 py-1 rounded-full text-sm font-medium ${getImprovementColor(improvement)}`}
+                        >
+                          <TrendingUp className="h-3 w-3 inline mr-1" />+{improvement}
+                        </div>
+                      )}
                       <Button variant="outline" size="sm" className="border-blue-200 hover:bg-blue-50 bg-transparent">
                         View Details
                       </Button>
@@ -186,40 +206,29 @@ export function ContentHistory() {
           </div>
         )}
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                  className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                />
-              </PaginationItem>
-
-              {[...Array(Math.min(5, totalPages))].map((_, i) => {
-                const page = i + 1
-                return (
-                  <PaginationItem key={page}>
-                    <PaginationLink
-                      onClick={() => setCurrentPage(page)}
-                      isActive={currentPage === page}
-                      className="cursor-pointer"
-                    >
-                      {page}
-                    </PaginationLink>
-                  </PaginationItem>
-                )
-              })}
-
-              <PaginationItem>
-                <PaginationNext
-                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                  className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
+        {/* Simple Pagination */}
+        {total > 10 && (
+          <div className="flex justify-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+              disabled={currentPage === 1}
+            >
+              Previous
+            </Button>
+            <span className="px-4 py-2 text-sm">
+              Page {currentPage} of {Math.ceil(total / 10)}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(Math.min(Math.ceil(total / 10), currentPage + 1))}
+              disabled={currentPage >= Math.ceil(total / 10)}
+            >
+              Next
+            </Button>
+          </div>
         )}
       </CardContent>
     </Card>

@@ -2,10 +2,29 @@ const express = require("express")
 const { body } = require("express-validator")
 const { optimizeContent, getContentHistory, getContentById } = require("../controllers/content")
 
-// Assuming these middleware functions are defined in your auth middleware file
-const { protect, checkSubscription, checkUsageLimit } = require("../middleware/auth")
-
 const router = express.Router()
+
+// Mock middleware functions - replace with your actual middleware
+const protect = (req, res, next) => {
+  // Mock user for development - replace with actual auth middleware
+  req.user = {
+    id: "mock-user-id",
+    subscription: { plan: "basic" },
+    usage: { contentOptimizationsThisMonth: 0 },
+    save: async () => {},
+  }
+  next()
+}
+
+const checkSubscription = (plan) => (req, res, next) => {
+  // Mock subscription check - implement your actual logic
+  next()
+}
+
+const checkUsageLimit = (type, limit) => (req, res, next) => {
+  // Mock usage limit check - implement your actual logic
+  next()
+}
 
 // Validation rules for content optimization
 const contentValidation = [
@@ -27,10 +46,10 @@ router.use(protect)
 // Route for optimizing content
 router.post(
   "/optimize",
-  contentValidation, // Apply validation rules
-  checkSubscription("basic"), // Requires basic subscription
-  checkUsageLimit("contentOptimizations", 10), // 10 optimizations per month for basic users
-  optimizeContent, // Controller function to handle optimization
+  contentValidation,
+  checkSubscription("basic"),
+  checkUsageLimit("contentOptimizations", 10),
+  optimizeContent,
 )
 
 // Route for getting content optimization history

@@ -4,7 +4,7 @@ const contentOptimizationSchema = new mongoose.Schema(
   {
     user: {
       type: mongoose.Schema.ObjectId,
-      ref: "User", // Ensure you have a 'User' model defined
+      ref: "User",
       required: true,
     },
     originalContent: {
@@ -42,7 +42,7 @@ const contentOptimizationSchema = new mongoose.Schema(
       {
         type: {
           type: String,
-          enum: ["keyword", "structure", "readability", "length", "meta"],
+          enum: ["keyword", "structure", "readability", "length", "meta", "ai"],
         },
         suggestion: String,
         applied: {
@@ -62,12 +62,18 @@ const contentOptimizationSchema = new mongoose.Schema(
       afterScore: Number,
       improvement: Number,
     },
+    status: {
+      type: String,
+      enum: ["processing", "completed", "failed"],
+      default: "processing",
+    },
+    errorMessage: String,
   },
   {
-    timestamps: true, // Adds createdAt and updatedAt fields
+    timestamps: true,
   },
 )
 
-contentOptimizationSchema.index({ user: 1, createdAt: -1 }) // Index for faster queries
+contentOptimizationSchema.index({ user: 1, createdAt: -1 })
 
 module.exports = mongoose.model("ContentOptimization", contentOptimizationSchema)

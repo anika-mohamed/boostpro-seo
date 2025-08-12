@@ -1,14 +1,13 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Loader2, Sparkles, Copy, CheckCircle, TrendingUp, Lightbulb, Hash } from "lucide-react"
+import { Loader2, Sparkles, Copy, CheckCircle, TrendingUp, Lightbulb, Hash, AlertCircle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { toast } from "sonner"
 
 interface OptimizedContentProps {
   optimizationId: string
@@ -48,6 +47,8 @@ interface OptimizationData {
     afterScore: number
     improvement: number
   }
+  status: string
+  errorMessage?: string
 }
 
 export function OptimizedContent({ optimizationId }: OptimizedContentProps) {
@@ -57,51 +58,67 @@ export function OptimizedContent({ optimizationId }: OptimizedContentProps) {
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
+    let pollInterval: NodeJS.Timeout
+
     const fetchOptimization = async () => {
       try {
-        const response = await fetch(`/api/content/${optimizationId}`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        })
+        const response = await fetch(`/api/content/${optimizationId}`)
 
         if (!response.ok) {
           throw new Error("Failed to fetch optimization results")
         }
 
         const result = await response.json()
-        setData(result.data)
+        const optimizationData = result.data
+
+        setData(optimizationData)
+
+        // Stop polling if optimization is completed or failed
+        if (optimizationData.status === "completed" || optimizationData.status === "failed") {
+          if (pollInterval) {
+            clearInterval(pollInterval)
+          }
+          setLoading(false)
+        }
       } catch (err) {
         setError("Failed to load optimization results")
         console.error(err)
-      } finally {
         setLoading(false)
+        if (pollInterval) {
+          clearInterval(pollInterval)
+        }
       }
     }
 
-    // Poll for results every 5 seconds until we get the optimized content
-    const pollInterval = setInterval(() => {
-      fetchOptimization()
-    }, 5000)
-
+    // Initial fetch
     fetchOptimization()
 
-    return () => clearInterval(pollInterval)
+    // Poll for results every 3 seconds until completion
+    pollInterval = setInterval(fetchOptimization, 3000)
+
+    // Cleanup interval on component unmount
+    return () => {
+      if (pollInterval) {
+        clearInterval(pollInterval)
+      }
+    }
   }, [optimizationId])
 
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text)
       setCopied(true)
+      toast.success("Content copied to clipboard!")
       setTimeout(() => setCopied(false), 2000)
     } catch (err) {
       console.error("Failed to copy text:", err)
+      toast.error("Failed to copy content")
     }
   }
 
-  if (loading) {
+  if (loading || (data && data.status === "processing")) {
     return (
-      <Card>
+      <Card className="border-0 shadow-xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5" />
@@ -122,7 +139,17 @@ export function OptimizedContent({ optimizationId }: OptimizedContentProps) {
   if (error || !data) {
     return (
       <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
         <AlertDescription>{error || "Failed to load optimization results"}</AlertDescription>
+      </Alert>
+    )
+  }
+
+  if (data.status === "failed") {
+    return (
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>Optimization failed: {data.errorMessage || "Unknown error occurred"}</AlertDescription>
       </Alert>
     )
   }
@@ -192,7 +219,7 @@ export function OptimizedContent({ optimizationId }: OptimizedContentProps) {
               </div>
             )}
 
-            <div className="p-4 border rounded-lg bg-white">
+            <div className="p-4 border rounded-lg bg-white max-h-96 overflow-y-auto">
               <div className="whitespace-pre-wrap text-sm leading-relaxed">{data.optimizedContent.content}</div>
             </div>
 
@@ -248,24 +275,24 @@ export function OptimizedContent({ optimizationId }: OptimizedContentProps) {
             </h3>
             <div className="space-y-4">
               <div>
-                <Label className="text-sm font-medium">Suggested Title</Label>
+                <label className="text-sm font-medium">Suggested Title</label>
                 <div className="p-3 bg-gray-50 rounded border mt-1">{data.metadata.suggestedTitle}</div>
               </div>
 
               <div>
-                <Label className="text-sm font-medium">Meta Description</Label>
+                <label className="text-sm font-medium">Meta Description</label>
                 <div className="p-3 bg-gray-50 rounded border mt-1">{data.metadata.suggestedDescription}</div>
               </div>
 
               <div>
-                <Label className="text-sm font-medium">URL Slug</Label>
+                <label className="text-sm font-medium">URL Slug</label>
                 <div className="p-3 bg-gray-50 rounded border mt-1 font-mono text-sm">
                   /{data.metadata.suggestedSlug}
                 </div>
               </div>
 
               <div>
-                <Label className="text-sm font-medium">Suggested Tags</Label>
+                <label className="text-sm font-medium">Suggested Tags</label>
                 <div className="flex flex-wrap gap-2 mt-2">
                   {data.metadata.suggestedTags.map((tag, index) => (
                     <Badge key={index} variant="secondary">
@@ -307,8 +334,4 @@ export function OptimizedContent({ optimizationId }: OptimizedContentProps) {
       </CardContent>
     </Card>
   )
-}
-
-function Label({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <label className={className}>{children}</label>
 }
