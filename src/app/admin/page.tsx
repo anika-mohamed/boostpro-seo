@@ -15,6 +15,457 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { toast } from "sonner"
 
+function ContentManagement() {
+  const [content, setContent] = useState({
+    hero: {
+      badge: "AI-Powered SEO Platform",
+      title: "Boost Your Website's SEO Performance",
+      description:
+        "Empower your small business with AI-driven SEO tools. Get automated audits, keyword research, competitor analysis, and actionable insights without technical expertise.",
+      primaryButton: "Start Free Trial",
+      secondaryButton: "View Demo",
+    },
+    features: {
+      title: "Powerful SEO Features",
+      description: "Everything you need to improve your website's search engine visibility",
+      items: [
+        {
+          icon: "Search",
+          title: "Automated SEO Audits",
+          description:
+            "Get comprehensive website audits using Google PageSpeed Insights. Analyze performance, mobile-friendliness, and technical SEO issues automatically.",
+        },
+        {
+          icon: "BarChart3",
+          title: "AI-Powered SWOT Analysis",
+          description:
+            "Receive intelligent analysis of your SEO strengths, weaknesses, opportunities, and threats with actionable recommendations powered by AI.",
+        },
+        {
+          icon: "TrendingUp",
+          title: "Keyword Research & Trends",
+          description:
+            "Discover high-potential keywords with Google Trends integration. Get search volume, competition data, and trend analysis to optimize your content strategy.",
+        },
+        {
+          icon: "Users",
+          title: "Competitor Analysis",
+          description:
+            "Compare your SEO metrics with top-ranking competitors. Identify gaps, opportunities, and strategies to outrank your competition in search results.",
+        },
+        {
+          icon: "Globe",
+          title: "Progress Tracking & Reports",
+          description:
+            "Track your SEO progress over time with visual charts and generate comprehensive PDF reports. Get ranking predictions and measure campaign effectiveness.",
+        },
+        {
+          icon: "Zap",
+          title: "Content Optimization",
+          description:
+            "Transform your content with SEO-optimized keywords and AI-powered suggestions. Improve readability and search visibility automatically.",
+        },
+      ],
+    },
+    pricing: {
+      title: "Simple, Transparent Pricing",
+      description: "Choose the plan that fits your business needs",
+      plans: [
+        {
+          name: "Guest User",
+          price: "Free",
+          description: "Perfect for trying out our platform",
+          features: ["Limited SEO audit (summary only)", "Create business profile", "View landing page"],
+          buttonText: "Get Started",
+          buttonVariant: "outline",
+          popular: false,
+        },
+        {
+          name: "Registered User",
+          price: "$19",
+          period: "/month",
+          description: "Great for small businesses getting started",
+          features: [
+            "Limited SEO audits",
+            "Keyword suggestion summary",
+            "Save audit history",
+            "Limited competitor info",
+          ],
+          buttonText: "Start Free Trial",
+          buttonVariant: "default",
+          popular: true,
+        },
+        {
+          name: "Pro User",
+          price: "$49",
+          period: "/month",
+          description: "Full access for growing businesses",
+          features: [
+            "Full SEO audits & SWOT reports",
+            "Download PDF reports",
+            "Complete competitor analysis",
+            "Rank prediction",
+            "Image alt suggestions",
+          ],
+          buttonText: "Upgrade to Pro",
+          buttonVariant: "default",
+          popular: false,
+        },
+      ],
+    },
+    cta: {
+      title: "Ready to Boost Your SEO?",
+      description: "Join thousands of small businesses already improving their online visibility with SEO BoostPro.",
+      primaryButton: "Start Your Free Trial",
+      secondaryButton: "Contact Sales",
+    },
+  })
+
+  const [activeSection, setActiveSection] = useState("hero")
+
+  useEffect(() => {
+    // Load content from localStorage if available
+    const savedContent = localStorage.getItem("landingPageContent")
+    if (savedContent) {
+      try {
+        setContent(JSON.parse(savedContent))
+      } catch (error) {
+        console.error("Error loading saved content:", error)
+      }
+    }
+  }, [])
+
+  const handleSave = () => {
+    try {
+      localStorage.setItem("landingPageContent", JSON.stringify(content))
+      toast.success("Content saved successfully!")
+    } catch (error) {
+      toast.error("Failed to save content")
+    }
+  }
+
+  const updateHero = (field: string, value: string) => {
+    setContent((prev) => ({
+      ...prev,
+      hero: { ...prev.hero, [field]: value },
+    }))
+  }
+
+  const updateFeatures = (field: string, value: string) => {
+    setContent((prev) => ({
+      ...prev,
+      features: { ...prev.features, [field]: value },
+    }))
+  }
+
+  const updateFeatureItem = (index: number, field: string, value: string) => {
+    setContent((prev) => ({
+      ...prev,
+      features: {
+        ...prev.features,
+        items: prev.features.items.map((item, i) => (i === index ? { ...item, [field]: value } : item)),
+      },
+    }))
+  }
+
+  const updatePricing = (field: string, value: string) => {
+    setContent((prev) => ({
+      ...prev,
+      pricing: { ...prev.pricing, [field]: value },
+    }))
+  }
+
+  const updatePricingPlan = (planIndex: number, field: string, value: any) => {
+    setContent((prev) => ({
+      ...prev,
+      pricing: {
+        ...prev.pricing,
+        plans: prev.pricing.plans.map((plan, i) => (i === planIndex ? { ...plan, [field]: value } : plan)),
+      },
+    }))
+  }
+
+  const updatePlanFeature = (planIndex: number, featureIndex: number, value: string) => {
+    setContent((prev) => ({
+      ...prev,
+      pricing: {
+        ...prev.pricing,
+        plans: prev.pricing.plans.map((plan, i) =>
+          i === planIndex
+            ? {
+                ...plan,
+                features: plan.features.map((feature, j) => (j === featureIndex ? value : feature)),
+              }
+            : plan,
+        ),
+      },
+    }))
+  }
+
+  const updateCTA = (field: string, value: string) => {
+    setContent((prev) => ({
+      ...prev,
+      cta: { ...prev.cta, [field]: value },
+    }))
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Landing Page Content Management</CardTitle>
+              <CardDescription>Edit the content displayed on your landing page</CardDescription>
+            </div>
+            <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700">
+              Save Changes
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Tabs value={activeSection} onValueChange={setActiveSection}>
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="hero">Hero Section</TabsTrigger>
+              <TabsTrigger value="features">Features</TabsTrigger>
+              <TabsTrigger value="pricing">Pricing</TabsTrigger>
+              <TabsTrigger value="cta">Call to Action</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="hero" className="space-y-4 mt-6">
+              <div className="grid gap-4">
+                <div>
+                  <Label htmlFor="hero-badge">Badge Text</Label>
+                  <Input
+                    id="hero-badge"
+                    value={content.hero.badge}
+                    onChange={(e) => updateHero("badge", e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="hero-title">Main Title</Label>
+                  <Input
+                    id="hero-title"
+                    value={content.hero.title}
+                    onChange={(e) => updateHero("title", e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="hero-description">Description</Label>
+                  <textarea
+                    id="hero-description"
+                    className="w-full min-h-[100px] p-3 border rounded-md"
+                    value={content.hero.description}
+                    onChange={(e) => updateHero("description", e.target.value)}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="hero-primary-btn">Primary Button Text</Label>
+                    <Input
+                      id="hero-primary-btn"
+                      value={content.hero.primaryButton}
+                      onChange={(e) => updateHero("primaryButton", e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="hero-secondary-btn">Secondary Button Text</Label>
+                    <Input
+                      id="hero-secondary-btn"
+                      value={content.hero.secondaryButton}
+                      onChange={(e) => updateHero("secondaryButton", e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="features" className="space-y-4 mt-6">
+              <div className="grid gap-4">
+                <div>
+                  <Label htmlFor="features-title">Features Section Title</Label>
+                  <Input
+                    id="features-title"
+                    value={content.features.title}
+                    onChange={(e) => updateFeatures("title", e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="features-description">Features Description</Label>
+                  <textarea
+                    id="features-description"
+                    className="w-full min-h-[80px] p-3 border rounded-md"
+                    value={content.features.description}
+                    onChange={(e) => updateFeatures("description", e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-6">
+                  <h4 className="font-semibold">Feature Items</h4>
+                  {content.features.items.map((item, index) => (
+                    <Card key={index} className="p-4">
+                      <div className="grid gap-3">
+                        <div>
+                          <Label>Feature {index + 1} Title</Label>
+                          <Input
+                            value={item.title}
+                            onChange={(e) => updateFeatureItem(index, "title", e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label>Feature {index + 1} Description</Label>
+                          <textarea
+                            className="w-full min-h-[80px] p-3 border rounded-md"
+                            value={item.description}
+                            onChange={(e) => updateFeatureItem(index, "description", e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="pricing" className="space-y-4 mt-6">
+              <div className="grid gap-4">
+                <div>
+                  <Label htmlFor="pricing-title">Pricing Section Title</Label>
+                  <Input
+                    id="pricing-title"
+                    value={content.pricing.title}
+                    onChange={(e) => updatePricing("title", e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="pricing-description">Pricing Description</Label>
+                  <textarea
+                    id="pricing-description"
+                    className="w-full min-h-[80px] p-3 border rounded-md"
+                    value={content.pricing.description}
+                    onChange={(e) => updatePricing("description", e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-6">
+                  <h4 className="font-semibold">Pricing Plans</h4>
+                  {content.pricing.plans.map((plan, planIndex) => (
+                    <Card key={planIndex} className="p-4">
+                      <div className="grid gap-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label>Plan Name</Label>
+                            <Input
+                              value={plan.name}
+                              onChange={(e) => updatePricingPlan(planIndex, "name", e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <Label>Price</Label>
+                            <Input
+                              value={plan.price}
+                              onChange={(e) => updatePricingPlan(planIndex, "price", e.target.value)}
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label>Period (optional)</Label>
+                            <Input
+                              value={plan.period || ""}
+                              onChange={(e) => updatePricingPlan(planIndex, "period", e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <Label>Button Text</Label>
+                            <Input
+                              value={plan.buttonText}
+                              onChange={(e) => updatePricingPlan(planIndex, "buttonText", e.target.value)}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label>Description</Label>
+                          <Input
+                            value={plan.description}
+                            onChange={(e) => updatePricingPlan(planIndex, "description", e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              checked={plan.popular}
+                              onChange={(e) => updatePricingPlan(planIndex, "popular", e.target.checked)}
+                            />
+                            <span>Mark as Popular</span>
+                          </Label>
+                        </div>
+                        <div>
+                          <Label>Features</Label>
+                          {plan.features.map((feature, featureIndex) => (
+                            <Input
+                              key={featureIndex}
+                              className="mt-2"
+                              value={feature}
+                              onChange={(e) => updatePlanFeature(planIndex, featureIndex, e.target.value)}
+                              placeholder={`Feature ${featureIndex + 1}`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="cta" className="space-y-4 mt-6">
+              <div className="grid gap-4">
+                <div>
+                  <Label htmlFor="cta-title">CTA Title</Label>
+                  <Input
+                    id="cta-title"
+                    value={content.cta.title}
+                    onChange={(e) => updateCTA("title", e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="cta-description">CTA Description</Label>
+                  <textarea
+                    id="cta-description"
+                    className="w-full min-h-[100px] p-3 border rounded-md"
+                    value={content.cta.description}
+                    onChange={(e) => updateCTA("description", e.target.value)}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="cta-primary-btn">Primary Button Text</Label>
+                    <Input
+                      id="cta-primary-btn"
+                      value={content.cta.primaryButton}
+                      onChange={(e) => updateCTA("primaryButton", e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="cta-secondary-btn">Secondary Button Text</Label>
+                    <Input
+                      id="cta-secondary-btn"
+                      value={content.cta.secondaryButton}
+                      onChange={(e) => updateCTA("secondaryButton", e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
 export default function AdminDashboard() {
   const [searchTerm, setSearchTerm] = useState("")
   const [openDialog, setOpenDialog] = useState(false)
@@ -86,7 +537,7 @@ export default function AdminDashboard() {
           subscription: { plan: newUser.plan, status: "active" },
           profile: { company: newUser.company, website: newUser.website },
         },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       )
       toast.success("User created successfully")
       setOpenDialog(false)
@@ -110,11 +561,9 @@ export default function AdminDashboard() {
         isActive: editUser.status === "active",
         subscription: { plan: editUser.role },
       }
-      const res = await axios.put(
-        `${process.env.NEXT_PUBLIC_API_URL}/admin/users/${editUser._id}`,
-        payload,
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
+      const res = await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${editUser._id}`, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
       toast.success("User updated successfully")
       setIsEditDialogOpen(false)
       const updatedUsers = await fetchUsers()
@@ -132,7 +581,7 @@ export default function AdminDashboard() {
       await axios.put(
         `${process.env.NEXT_PUBLIC_API_URL}/admin/users/${resetUser._id}`,
         { password: newPassword },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       )
       toast.success("Password reset successfully")
       setIsResetDialogOpen(false)
@@ -150,7 +599,7 @@ export default function AdminDashboard() {
       await axios.put(
         `${process.env.NEXT_PUBLIC_API_URL}/admin/users/${userId}`,
         { isActive: false },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       )
       toast.success("User deactivated successfully")
       const updatedUsers = await fetchUsers()
@@ -209,16 +658,10 @@ export default function AdminDashboard() {
                 </div>
 
                 <Label>Company (optional)</Label>
-                <Input
-                  value={newUser.company}
-                  onChange={(e) => setNewUser({ ...newUser, company: e.target.value })}
-                />
+                <Input value={newUser.company} onChange={(e) => setNewUser({ ...newUser, company: e.target.value })} />
 
                 <Label>Website (optional)</Label>
-                <Input
-                  value={newUser.website}
-                  onChange={(e) => setNewUser({ ...newUser, website: e.target.value })}
-                />
+                <Input value={newUser.website} onChange={(e) => setNewUser({ ...newUser, website: e.target.value })} />
 
                 <Label>Plan</Label>
                 <select
@@ -299,6 +742,7 @@ export default function AdminDashboard() {
         <Tabs defaultValue="users" className="space-y-6">
           <TabsList>
             <TabsTrigger value="users">User Management</TabsTrigger>
+            <TabsTrigger value="content">Content Management</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
             <TabsTrigger value="settings">System Settings</TabsTrigger>
           </TabsList>
@@ -340,7 +784,7 @@ export default function AdminDashboard() {
                       .filter(
                         (user) =>
                           user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          user.email.toLowerCase().includes(searchTerm.toLowerCase())
+                          user.email.toLowerCase().includes(searchTerm.toLowerCase()),
                       )
                       .map((user) => (
                         <TableRow key={user._id}>
@@ -356,10 +800,10 @@ export default function AdminDashboard() {
                                 user.role === "pro"
                                   ? "default"
                                   : user.role === "basic"
-                                  ? "secondary"
-                                  : user.role === "admin"
-                                  ? "destructive"
-                                  : "outline"
+                                    ? "secondary"
+                                    : user.role === "admin"
+                                      ? "destructive"
+                                      : "outline"
                               }
                             >
                               {user.role || "free"}
@@ -419,6 +863,10 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          <TabsContent value="content" className="space-y-6">
+            <ContentManagement />
+          </TabsContent>
           {/* Analytics & Settings tabs can be added later */}
         </Tabs>
       </div>
@@ -466,10 +914,7 @@ export default function AdminDashboard() {
           {editUser && (
             <div className="space-y-4">
               <Label>Name</Label>
-              <Input
-                value={editUser.name || ""}
-                onChange={(e) => setEditUser({ ...editUser, name: e.target.value })}
-              />
+              <Input value={editUser.name || ""} onChange={(e) => setEditUser({ ...editUser, name: e.target.value })} />
               <Label>Email</Label>
               <Input
                 type="email"

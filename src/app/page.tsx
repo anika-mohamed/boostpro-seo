@@ -1,10 +1,141 @@
+"use client"
+
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { CheckCircle, TrendingUp, Search, BarChart3, Users, Zap, Globe } from "lucide-react"
 import Link from "next/link"
 
+// Default content structure
+const defaultContent = {
+  hero: {
+    badge: "AI-Powered SEO Platform",
+    title: "Boost Your Website's SEO Performance",
+    description:
+      "Empower your small business with AI-driven SEO tools. Get automated audits, keyword research, competitor analysis, and actionable insights without technical expertise.",
+    primaryButton: "Start Free Trial",
+    secondaryButton: "View Demo",
+  },
+  features: {
+    title: "Powerful SEO Features",
+    description: "Everything you need to improve your website's search engine visibility",
+    items: [
+      {
+        icon: "Search",
+        title: "Automated SEO Audits",
+        description:
+          "Get comprehensive website audits using Google PageSpeed Insights. Analyze performance, mobile-friendliness, and technical SEO issues automatically.",
+      },
+      {
+        icon: "BarChart3",
+        title: "AI-Powered SWOT Analysis",
+        description:
+          "Receive intelligent analysis of your SEO strengths, weaknesses, opportunities, and threats with actionable recommendations powered by AI.",
+      },
+      {
+        icon: "TrendingUp",
+        title: "Keyword Research & Trends",
+        description:
+          "Discover high-potential keywords with Google Trends integration. Get search volume, competition data, and trend analysis to optimize your content strategy.",
+      },
+      {
+        icon: "Users",
+        title: "Competitor Analysis",
+        description:
+          "Compare your SEO metrics with top-ranking competitors. Identify gaps, opportunities, and strategies to outrank your competition in search results.",
+      },
+      {
+        icon: "Globe",
+        title: "Progress Tracking & Reports",
+        description:
+          "Track your SEO progress over time with visual charts and generate comprehensive PDF reports. Get ranking predictions and measure campaign effectiveness.",
+      },
+      {
+        icon: "Zap",
+        title: "Content Optimization",
+        description:
+          "Transform your content with SEO-optimized keywords and AI-powered suggestions. Improve readability and search visibility automatically.",
+      },
+    ],
+  },
+  pricing: {
+    title: "Simple, Transparent Pricing",
+    description: "Choose the plan that fits your business needs",
+    plans: [
+      {
+        name: "Guest User",
+        price: "Free",
+        description: "Perfect for trying out our platform",
+        features: ["Limited SEO audit (summary only)", "Create business profile", "View landing page"],
+        buttonText: "Get Started",
+        buttonVariant: "outline",
+        popular: false,
+      },
+      {
+        name: "Registered User",
+        price: "$19",
+        period: "/month",
+        description: "Great for small businesses getting started",
+        features: ["Limited SEO audits", "Keyword suggestion summary", "Save audit history", "Limited competitor info"],
+        buttonText: "Start Free Trial",
+        buttonVariant: "default",
+        popular: true,
+      },
+      {
+        name: "Pro User",
+        price: "$49",
+        period: "/month",
+        description: "Full access for growing businesses",
+        features: [
+          "Full SEO audits & SWOT reports",
+          "Download PDF reports",
+          "Complete competitor analysis",
+          "Rank prediction",
+          "Image alt suggestions",
+        ],
+        buttonText: "Upgrade to Pro",
+        buttonVariant: "default",
+        popular: false,
+      },
+    ],
+  },
+  cta: {
+    title: "Ready to Boost Your SEO?",
+    description: "Join thousands of small businesses already improving their online visibility with SEO BoostPro.",
+    primaryButton: "Start Your Free Trial",
+    secondaryButton: "Contact Sales",
+  },
+}
+
 export default function LandingPage() {
+  const [content, setContent] = useState(defaultContent)
+
+  useEffect(() => {
+    // Load content from localStorage if available
+    const savedContent = localStorage.getItem("landingPageContent")
+    if (savedContent) {
+      try {
+        setContent(JSON.parse(savedContent))
+      } catch (error) {
+        console.error("Error loading saved content:", error)
+      }
+    }
+  }, [])
+
+  const getIcon = (iconName: string) => {
+    const icons = {
+      Search: Search,
+      BarChart3: BarChart3,
+      TrendingUp: TrendingUp,
+      Users: Users,
+      Globe: Globe,
+      Zap: Zap,
+    }
+    const IconComponent = icons[iconName as keyof typeof icons] || Search
+    return IconComponent
+  }
+
   return (
     <div className="flex flex-col min-h-screen">
       {/* Header */}
@@ -40,18 +171,15 @@ export default function LandingPage() {
             <div className="flex flex-col items-center space-y-4 text-center">
               <div className="space-y-2">
                 <Badge variant="secondary" className="mb-4">
-                  AI-Powered SEO Platform
+                  {content.hero.badge}
                 </Badge>
                 <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl lg:text-6xl/none">
-                  Boost Your Website's{" "}
+                  {content.hero.title.split("SEO Performance")[0]}
                   <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                     SEO Performance
                   </span>
                 </h1>
-                <p className="mx-auto max-w-[700px] text-gray-500 md:text-xl">
-                  Empower your small business with AI-driven SEO tools. Get automated audits, keyword research,
-                  competitor analysis, and actionable insights without technical expertise.
-                </p>
+                <p className="mx-auto max-w-[700px] text-gray-500 md:text-xl">{content.hero.description}</p>
               </div>
               <div className="space-x-4">
                 <Link href="/register">
@@ -59,12 +187,12 @@ export default function LandingPage() {
                     size="lg"
                     className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
                   >
-                    Start Free Trial
+                    {content.hero.primaryButton}
                   </Button>
                 </Link>
                 <Link href="/demo">
                   <Button variant="outline" size="lg">
-                    View Demo
+                    {content.hero.secondaryButton}
                   </Button>
                 </Link>
               </div>
@@ -86,84 +214,27 @@ export default function LandingPage() {
         <section id="features" className="w-full py-12 md:py-24 lg:py-32">
           <div className="container px-4 md:px-6">
             <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">Powerful SEO Features</h2>
-              <p className="mx-auto max-w-[700px] text-gray-500 md:text-xl mt-4">
-                Everything you need to improve your website's search engine visibility
-              </p>
+              <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">{content.features.title}</h2>
+              <p className="mx-auto max-w-[700px] text-gray-500 md:text-xl mt-4">{content.features.description}</p>
             </div>
             <div className="grid gap-6 lg:grid-cols-3 lg:gap-12">
-              <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow">
-                <CardHeader>
-                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-                    <Search className="h-6 w-6 text-blue-600" />
-                  </div>
-                  <CardTitle>Automated SEO Audits</CardTitle>
-                  <CardDescription>
-                    Get comprehensive website audits using Google PageSpeed Insights. Analyze performance,
-                    mobile-friendliness, and technical SEO issues automatically.
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-              <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow">
-                <CardHeader>
-                  <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
-                    <BarChart3 className="h-6 w-6 text-purple-600" />
-                  </div>
-                  <CardTitle>AI-Powered SWOT Analysis</CardTitle>
-                  <CardDescription>
-                    Receive intelligent analysis of your SEO strengths, weaknesses, opportunities, and threats with
-                    actionable recommendations powered by AI.
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-              <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow">
-                <CardHeader>
-                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
-                    <TrendingUp className="h-6 w-6 text-green-600" />
-                  </div>
-                  <CardTitle>Keyword Research & Trends</CardTitle>
-                  <CardDescription>
-                    Discover high-potential keywords with Google Trends integration. Get search volume, competition
-                    data, and trend analysis to optimize your content strategy.
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-              <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow">
-                <CardHeader>
-                  <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mb-4">
-                    <Users className="h-6 w-6 text-orange-600" />
-                  </div>
-                  <CardTitle>Competitor Analysis</CardTitle>
-                  <CardDescription>
-                    Compare your SEO metrics with top-ranking competitors. Identify gaps, opportunities, and strategies
-                    to outrank your competition in search results.
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-              <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow">
-                <CardHeader>
-                  <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mb-4">
-                    <Globe className="h-6 w-6 text-red-600" />
-                  </div>
-                  <CardTitle>Progress Tracking & Reports</CardTitle>
-                  <CardDescription>
-                    Track your SEO progress over time with visual charts and generate comprehensive PDF reports. Get
-                    ranking predictions and measure campaign effectiveness.
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-              <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow">
-                <CardHeader>
-                  <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center mb-4">
-                    <Zap className="h-6 w-4 text-indigo-600" />
-                  </div>
-                  <CardTitle>Content Optimization</CardTitle>
-                  <CardDescription>
-                    Transform your content with SEO-optimized keywords and AI-powered suggestions. Improve readability
-                    and search visibility automatically.
-                  </CardDescription>
-                </CardHeader>
-              </Card>
+              {content.features.items.map((feature, index) => {
+                const IconComponent = getIcon(feature.icon)
+                const colors = ["blue", "purple", "green", "orange", "red", "indigo"]
+                const color = colors[index % colors.length]
+
+                return (
+                  <Card key={index} className="border-0 shadow-lg hover:shadow-xl transition-shadow">
+                    <CardHeader>
+                      <div className={`w-12 h-12 bg-${color}-100 rounded-lg flex items-center justify-center mb-4`}>
+                        <IconComponent className={`h-6 w-6 text-${color}-600`} />
+                      </div>
+                      <CardTitle>{feature.title}</CardTitle>
+                      <CardDescription>{feature.description}</CardDescription>
+                    </CardHeader>
+                  </Card>
+                )
+              })}
             </div>
           </div>
         </section>
@@ -172,114 +243,46 @@ export default function LandingPage() {
         <section id="pricing" className="w-full py-12 md:py-24 lg:py-32 bg-gray-50">
           <div className="container px-4 md:px-6">
             <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">
-                Simple, Transparent Pricing
-              </h2>
-              <p className="mx-auto max-w-[700px] text-gray-500 md:text-xl mt-4">
-                Choose the plan that fits your business needs
-              </p>
+              <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">{content.pricing.title}</h2>
+              <p className="mx-auto max-w-[700px] text-gray-500 md:text-xl mt-4">{content.pricing.description}</p>
             </div>
             <div className="grid gap-6 lg:grid-cols-3 lg:gap-8">
-              {/* Free Tier */}
-              <Card className="border-2 border-gray-200">
-                <CardHeader>
-                  <CardTitle className="text-center">Guest User</CardTitle>
-                  <div className="text-center">
-                    <span className="text-4xl font-bold">Free</span>
-                  </div>
-                  <CardDescription className="text-center">Perfect for trying out our platform</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2">
-                    <li className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                      Limited SEO audit (summary only)
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                      Create business profile
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                      View landing page
-                    </li>
-                  </ul>
-                  <Button className="w-full mt-6" variant="outline">
-                    Get Started
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {/* Registered User */}
-              <Card className="border-2 border-blue-200 relative">
-                <Badge className="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-blue-600">Most Popular</Badge>
-                <CardHeader>
-                  <CardTitle className="text-center">Registered User</CardTitle>
-                  <div className="text-center">
-                    <span className="text-4xl font-bold">$19</span>
-                    <span className="text-gray-500">/month</span>
-                  </div>
-                  <CardDescription className="text-center">Great for small businesses getting started</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2">
-                    <li className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                      Limited SEO audits
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                      Keyword suggestion summary
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                      Save audit history
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                      Limited competitor info
-                    </li>
-                  </ul>
-                  <Button className="w-full mt-6 bg-blue-600 hover:bg-blue-700">Start Free Trial</Button>
-                </CardContent>
-              </Card>
-
-              {/* Paid User */}
-              <Card className="border-2 border-purple-200">
-                <CardHeader>
-                  <CardTitle className="text-center">Pro User</CardTitle>
-                  <div className="text-center">
-                    <span className="text-4xl font-bold">$49</span>
-                    <span className="text-gray-500">/month</span>
-                  </div>
-                  <CardDescription className="text-center">Full access for growing businesses</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2">
-                    <li className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                      Full SEO audits & SWOT reports
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                      Download PDF reports
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                      Complete competitor analysis
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                      Rank prediction
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                      Image alt suggestions
-                    </li>
-                  </ul>
-                  <Button className="w-full mt-6 bg-purple-600 hover:bg-purple-700">Upgrade to Pro</Button>
-                </CardContent>
-              </Card>
+              {content.pricing.plans.map((plan, index) => (
+                <Card
+                  key={index}
+                  className={`border-2 ${plan.popular ? "border-blue-200 relative" : "border-gray-200"}`}
+                >
+                  {plan.popular && (
+                    <Badge className="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-blue-600">
+                      Most Popular
+                    </Badge>
+                  )}
+                  <CardHeader>
+                    <CardTitle className="text-center">{plan.name}</CardTitle>
+                    <div className="text-center">
+                      <span className="text-4xl font-bold">{plan.price}</span>
+                      {plan.period && <span className="text-gray-500">{plan.period}</span>}
+                    </div>
+                    <CardDescription className="text-center">{plan.description}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-2">
+                      {plan.features.map((feature, featureIndex) => (
+                        <li key={featureIndex} className="flex items-center">
+                          <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                          {feature}
+                        </li>
+                      ))}
+                    </ul>
+                    <Button
+                      className={`w-full mt-6 ${plan.popular ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+                      variant={plan.buttonVariant as "default" | "outline"}
+                    >
+                      {plan.buttonText}
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           </div>
         </section>
@@ -290,25 +293,23 @@ export default function LandingPage() {
             <div className="flex flex-col items-center space-y-4 text-center">
               <div className="space-y-2">
                 <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl text-white">
-                  Ready to Boost Your SEO?
+                  {content.cta.title}
                 </h2>
-                <p className="mx-auto max-w-[600px] text-blue-100 md:text-xl">
-                  Join thousands of small businesses already improving their online visibility with SEO BoostPro.
-                </p>
+                <p className="mx-auto max-w-[600px] text-blue-100 md:text-xl">{content.cta.description}</p>
               </div>
               <div className="space-x-4">
                 <Link href="/register">
                   <Button size="lg" variant="secondary">
-                    Start Your Free Trial
+                    {content.cta.primaryButton}
                   </Button>
                 </Link>
                 <Link href="/contact">
                   <Button
                     size="lg"
                     variant="outline"
-                    className="text-white border-white hover:bg-white hover:text-blue-600"
+                    className="text-white border-white hover:bg-white hover:text-blue-600 bg-transparent"
                   >
-                    Contact Sales
+                    {content.cta.secondaryButton}
                   </Button>
                 </Link>
               </div>
