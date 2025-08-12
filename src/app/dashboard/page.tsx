@@ -171,6 +171,7 @@ function DashboardContent() {
             <TabsTrigger value="audits">Recent Audits</TabsTrigger>
             <TabsTrigger value="keywords">Keyword Research</TabsTrigger>
             <TabsTrigger value="competitors">Competitor Analysis</TabsTrigger>
+            <TabsTrigger value="content">Content Optimize</TabsTrigger>
             <TabsTrigger value="alt-tags">Image ALT Tags</TabsTrigger>
             <TabsTrigger value="upgrade">Upgrade Plan</TabsTrigger>
           </TabsList>
@@ -251,6 +252,12 @@ function DashboardContent() {
                       <Button className="w-full justify-start" variant="outline">
                         <Users className="h-4 w-4 mr-2" />
                         Competitor Analysis
+                      </Button>
+                    </Link>
+                    <Link href="/content" className="block">
+                      <Button className="w-full justify-start" variant="outline">
+                        <Users className="h-4 w-4 mr-2" />
+                        Content Optimizer
                       </Button>
                     </Link>
                     <Link href="/alt-tags" className="block">
@@ -375,6 +382,20 @@ function DashboardContent() {
               <CardContent>
                 <p>This is where competitor analysis tools and data will appear.</p>
                 {/* Add competitor components here */}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Content Tab */}
+          <TabsContent value="content" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Content Optimization</CardTitle>
+                <CardDescription>Improve your content for better SEO</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p>This is where content optimization tools and data will appear.</p>
+                {/* Add content optimization components here */}
               </CardContent>
             </Card>
           </TabsContent>

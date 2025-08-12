@@ -1,10 +1,9 @@
 "use client"
 
 import { useState } from "react"
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQuery } from "@tanstack/react-query"
 import { seoApi } from "@/lib/api/seo"
 import { useSeoQueries } from "@/lib/hooks/use-seo-queries"
-import { useAuth } from "@/lib/hooks/use-auth"
 import { ProtectedRoute } from "@/components/auth/protected-route"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -14,343 +13,304 @@ import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { toast } from "sonner"
-import { Users, TrendingUp, ArrowLeft, Plus, X, BarChart3, Globe, Target, AlertTriangle } from "lucide-react"
-import Link from "next/link"
+import { Users, ArrowLeft, Plus, X, Loader2, Download } from "lucide-react"
+import { AxiosError } from "axios"
 
-function CompetitorStartContent() {
-  const [keywords, setKeywords] = useState<string[]>([])
-  const [currentKeyword, setCurrentKeyword] = useState("")
-  const [userWebsite, setUserWebsite] = useState("")
-  const [analysisResult, setAnalysisResult] = useState<any | null>(null)
-  const [progress, setProgress] = useState(0)
+// ====================================================================
+//  TYPE DEFINITIONS & CONSTANTS
+// ====================================================================
 
-  const analysisMutation = useMutation({
-    mutationFn: ({ keywords, userWebsite }: { keywords: string[]; userWebsite?: string }) =>
-      seoApi.analyzeCompetitors(keywords, userWebsite),
-    onSuccess: (data) => {
-      setAnalysisResult(data.data)
-      setProgress(100)
-      toast.success("Competitor analysis completed!")
+const ANALYSIS_STATUS = {
+  PENDING: 'pending',
+  COMPLETED: 'completed',
+  FAILED: 'failed',
+} as const;
+
+type AnalysisStatus = typeof ANALYSIS_STATUS[keyof typeof ANALYSIS_STATUS];
+
+interface Competitor {
+  _id: string;
+  url: string;
+  domain: string;
+  technicalScore: number;
+  contentLength: number;
+}
+
+interface AnalysisResult {
+  _id: string;
+  status: AnalysisStatus;
+  keywords: string[];
+  summary: {
+    totalCompetitors: number;
+    avgCompetitorScore: number;
+  };
+  analysis: {
+      gapAnalysis: any[];
+      opportunities: any[];
+  };
+  competitors: Competitor[];
+  userWebsite?: string;
+  createdAt: string;
+}
+
+interface ApiResponse<T> {
+    success: boolean;
+    data: T;
+}
+
+interface CompetitorResultPageProps {
+  analysisId: string;
+  onBack: () => void;
+}
+
+interface CompetitorStartContentProps {
+  onAnalysisStart: (id: string) => void;
+}
+
+/**
+ * Displays the results of a single analysis, polling for completion.
+ */
+function CompetitorResultPage({ analysisId, onBack }: CompetitorResultPageProps) {
+  const { data: result, isLoading, isError } = useQuery({
+    queryKey: ["competitorAnalysis", analysisId],
+    queryFn: () => seoApi.getCompetitorAnalysisById(analysisId),
+    enabled: !!analysisId,
+    refetchInterval: (query: any) => {
+      if (query.state.data?.data?.status === ANALYSIS_STATUS.PENDING) {
+        return 5000; // Poll every 5 seconds if pending
+      }
+      return false; // Stop polling if completed, failed, or on error
     },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.message || "Analysis failed")
-      setProgress(0)
-    },
-  })
+  });
 
-  const addKeyword = () => {
-    if (currentKeyword.trim() && keywords.length < 3 && !keywords.includes(currentKeyword.trim())) {
-      setKeywords([...keywords, currentKeyword.trim()])
-      setCurrentKeyword("")
-    }
+  const analysisResult = result?.data;
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center p-10">
+        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+        <p className="mt-4 text-lg">Loading Analysis Report...</p>
+      </div>
+    );
   }
-
-  const removeKeyword = (index: number) => {
-    setKeywords(keywords.filter((_, i) => i !== index))
-  }
-
-  const handleAnalysis = () => {
-    if (keywords.length === 0) {
-      toast.error("Please add at least one keyword")
-      return
-    }
-
-    setProgress(10)
-    analysisMutation.mutate({ keywords, userWebsite: userWebsite || undefined })
-
-    // Simulate progress
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 90) {
-          clearInterval(interval)
-          return 90
-        }
-        return prev + 10
-      })
-    }, 2000)
-  }
-
-  const getQualityColor = (quality: string) => {
-    switch (quality) {
-      case "high":
-        return "text-green-600 bg-green-100"
-      case "medium":
-        return "text-yellow-600 bg-yellow-100"
-      case "low":
-        return "text-red-600 bg-red-100"
-      default:
-        return "text-gray-600 bg-gray-100"
-    }
-  }
-
-  if (!analysisResult) {
+  
+  if (isError || !analysisResult) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle>Setup Competitor Analysis</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium mb-2">Target Keywords (1-3 keywords)</label>
-            <div className="flex gap-2 mb-3">
-              <Input
-                placeholder="Enter a keyword (e.g., 'digital marketing')"
-                value={currentKeyword}
-                onChange={(e) => setCurrentKeyword(e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && addKeyword()}
-                disabled={keywords.length >= 3}
-              />
-              <Button
-                onClick={addKeyword}
-                disabled={!currentKeyword.trim() || keywords.length >= 3}
-                variant="outline"
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {keywords.map((keyword, index) => (
-                <Badge key={index} variant="secondary" className="flex items-center gap-1">
-                  {keyword}
-                  <button onClick={() => removeKeyword(index)}>
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">Your Website (Optional)</label>
-            <Input
-              placeholder="https://yourwebsite.com"
-              value={userWebsite}
-              onChange={(e) => setUserWebsite(e.target.value)}
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Include your website to see how you compare against competitors
-            </p>
-          </div>
-
-          <Button
-            onClick={handleAnalysis}
-            disabled={keywords.length === 0 || analysisMutation.isPending}
-            className="w-full bg-gradient-to-r from-purple-600 to-blue-600"
-          >
-            {analysisMutation.isPending ? "Analyzing Competitors..." : "Start Analysis"}
-          </Button>
-
-          {analysisMutation.isPending && (
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Analysis Progress</span>
-                <span>{progress}%</span>
-              </div>
-              <Progress value={progress} />
-              <p className="text-sm text-gray-500">
-                {progress < 30
-                  ? "Searching for competitors..."
-                  : progress < 60
-                  ? "Analyzing competitor websites..."
-                  : progress < 90
-                  ? "Generating insights..."
-                  : "Finalizing results..."}
-              </p>
-            </div>
-          )}
+        <CardHeader><CardTitle>Error</CardTitle></CardHeader>
+        <CardContent>
+          <p>Could not load the analysis report. Please try again later.</p>
+          <Button onClick={onBack} variant="outline" className="mt-4">Go Back</Button>
         </CardContent>
       </Card>
     )
   }
 
+  if (analysisResult.status === ANALYSIS_STATUS.PENDING) {
+    return (
+      <Card>
+        <CardHeader><CardTitle>Analysis in Progress</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <p>Your analysis for keywords: <span className="font-semibold">{analysisResult.keywords.join(", ")}</span> is running.</p>
+          <Progress value={50} />
+          <p className="text-sm text-center text-gray-500">Please wait, this can take several minutes...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* Summary */}
+      <div className="flex items-center gap-4">
+          <Button onClick={onBack} variant="outline" className="flex items-center gap-2">
+            <ArrowLeft className="h-4 w-4" /> Back to Analyses
+          </Button>
+
+          <a
+            href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/competitors/analysis/${analysisId}/download`}
+            download
+          >
+            <Button variant="default" className="flex items-center gap-2">
+                <Download className="h-4 w-4" />
+                Download PDF
+            </Button>
+          </a>
+      </div>
       <Card>
         <CardHeader>
           <CardTitle>Analysis Summary</CardTitle>
+          <CardDescription>Keywords: {analysisResult.keywords.join(", ")}</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-4">
-            <div className="text-center">
+          <div className="grid gap-4 md:grid-cols-4 text-center">
+            <div>
               <div className="text-2xl font-bold">{analysisResult.summary?.totalCompetitors || 0}</div>
-              <div className="text-sm text-gray-500">Competitors Found</div>
+              <p className="text-sm text-gray-500">Competitors Found</p>
             </div>
-            <div className="text-center">
+            <div>
               <div className="text-2xl font-bold">{analysisResult.summary?.avgCompetitorScore || 0}</div>
-              <div className="text-sm text-gray-500">Avg. Technical Score</div>
+              <p className="text-sm text-gray-500">Avg. Technical Score</p>
             </div>
-            <div className="text-center">
+            <div>
               <div className="text-2xl font-bold">{analysisResult.analysis?.gapAnalysis?.length || 0}</div>
-              <div className="text-sm text-gray-500">Keyword Gaps</div>
+              <p className="text-sm text-gray-500">Keyword Gaps</p>
             </div>
-            <div className="text-center">
+            <div>
               <div className="text-2xl font-bold">{analysisResult.analysis?.opportunities?.length || 0}</div>
-              <div className="text-sm text-gray-500">Opportunities</div>
+              <p className="text-sm text-gray-500">Opportunities</p>
             </div>
           </div>
         </CardContent>
       </Card>
-
-      {/* Detailed Results */}
-      {/* (Reuse the detailed Tabs content from your existing start page) */}
-      {/* ... For brevity, you can insert your full TabsContent here from your previous code ... */}
-
-      <Button onClick={() => setAnalysisResult(null)} variant="outline">
-        Start New Analysis
-      </Button>
+      <Card>
+        <CardHeader><CardTitle>Competitor Details</CardTitle></CardHeader>
+        <CardContent>
+            <Table>
+                <TableHeader><TableRow><TableHead>#</TableHead><TableHead>Domain</TableHead><TableHead>Score</TableHead><TableHead>Words</TableHead></TableRow></TableHeader>
+                <TableBody>
+                    {analysisResult.competitors?.map((comp: Competitor, index: number) => (
+                        <TableRow key={comp._id || index}>
+                            <TableCell>{index + 1}</TableCell>
+                            <TableCell><a href={comp.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{comp.domain}</a></TableCell>
+                            <TableCell><Badge variant={comp.technicalScore > 80 ? "default" : "destructive"}>{comp.technicalScore}</Badge></TableCell>
+                            <TableCell>{comp.contentLength}</TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+        </CardContent>
+       </Card>
     </div>
   )
 }
 
-function CompetitorPageContent() {
-  const { user } = useAuth()
-  const { useCompetitorHistory } = useSeoQueries()
-  const { data: historyData, isLoading } = useCompetitorHistory()
+/**
+ * Renders the form for starting a new competitor analysis.
+ */
+function CompetitorStartContent({ onAnalysisStart }: CompetitorStartContentProps) {
+  const [keywords, setKeywords] = useState<string[]>([]);
+  const [currentKeyword, setCurrentKeyword] = useState("");
+  const [userWebsite, setUserWebsite] = useState("");
 
-  const recentCompetitors = Array.isArray(historyData?.data) ? historyData.data.slice(0, 3) : []
-  const total = historyData?.total || 0
+  const startAnalysisMutation = useMutation({
+    mutationFn: (variables: { keywords: string[]; userWebsite?: string }) =>
+      seoApi.analyzeCompetitors(variables.keywords, variables.userWebsite),
+    onSuccess: (response: ApiResponse<{ analysisId: string }>) => {
+      toast.success("Competitor analysis started successfully!");
+      onAnalysisStart(response.data.analysisId);
+    },
+    onError: (err: AxiosError<{ message: string }>) => {
+      toast.error(err.response?.data?.message || "Failed to start analysis");
+    },
+  });
+
+  const addKeyword = () => {
+    if (currentKeyword.trim() && keywords.length < 3 && !keywords.includes(currentKeyword.trim())) {
+      setKeywords([...keywords, currentKeyword.trim()]);
+      setCurrentKeyword("");
+    }
+  };
+
+  const removeKeyword = (index: number) => {
+    setKeywords(keywords.filter((_, i) => i !== index));
+  };
+
+  const handleAnalysis = () => {
+    if (keywords.length === 0) {
+      toast.error("Please add at least one keyword");
+      return;
+    }
+    startAnalysisMutation.mutate({ keywords, userWebsite: userWebsite || undefined });
+  };
+
+  return (
+    <Card>
+      <CardHeader><CardTitle>Setup New Competitor Analysis</CardTitle></CardHeader>
+      <CardContent className="space-y-6">
+        <div>
+          <label className="block text-sm font-medium mb-2">Target Keywords (Max 3)</label>
+          <div className="flex gap-2 mb-3">
+            <Input placeholder="e.g., 'digital marketing'" value={currentKeyword} onChange={(e) => setCurrentKeyword(e.target.value)} onKeyPress={(e) => e.key === "Enter" && addKeyword()} disabled={keywords.length >= 3 || startAnalysisMutation.isPending} />
+            <Button onClick={addKeyword} disabled={!currentKeyword.trim() || keywords.length >= 3 || startAnalysisMutation.isPending} variant="outline"><Plus className="h-4 w-4" /></Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {keywords.map((keyword, index) => (
+              <Badge key={index} variant="secondary" className="flex items-center gap-1">{keyword}<button onClick={() => removeKeyword(index)}><X className="h-3 w-3" /></button></Badge>
+            ))}
+          </div>
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-2">Your Website (Optional)</label>
+          <Input placeholder="https://yourwebsite.com" value={userWebsite} onChange={(e) => setUserWebsite(e.target.value)} disabled={startAnalysisMutation.isPending} />
+        </div>
+        <Button onClick={handleAnalysis} disabled={keywords.length === 0 || startAnalysisMutation.isPending} className="w-full bg-gradient-to-r from-purple-600 to-blue-600">
+          {startAnalysisMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Starting...</> : "Start Analysis"}
+        </Button>
+      </CardContent>
+    </Card>
+  )
+}
+
+/**
+ * The main page component that orchestrates the different views.
+ */
+function CompetitorPageContent() {
+  const { useCompetitorHistory } = useSeoQueries();
+  const { data: history, isLoading } = useCompetitorHistory();
+  const [viewingAnalysisId, setViewingAnalysisId] = useState<string | null>(null);
+  
+  if (viewingAnalysisId) {
+    return <CompetitorResultPage analysisId={viewingAnalysisId} onBack={() => setViewingAnalysisId(null)} />;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="bg-gradient-to-r from-green-600 to-blue-600 p-2 rounded-lg">
-              <Users className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold">Competitor Analysis</h1>
-              <p className="text-gray-600">Insights into your top competitors</p>
-            </div>
-          </div>
+        <div className="flex items-center space-x-4">
+          <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-2 rounded-lg"><Users className="h-6 w-6 text-white" /></div>
+          <div><h1 className="text-2xl font-bold">Competitor Analysis</h1><p className="text-gray-600">Analyze your competitors' SEO strategies</p></div>
         </div>
       </header>
-
-      <div className="p-6">
-        <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="history">History</TabsTrigger>
-            <TabsTrigger value="new-analysis">New Analysis</TabsTrigger>
-          </TabsList>
-
-          {/* Overview Tab */}
-          <TabsContent value="overview" className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recent Competitor Analyses</CardTitle>
-                  <CardDescription>Your latest keyword-based scans</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {isLoading ? (
-                    <div className="space-y-3">
-                      {[1, 2, 3].map((i) => (
-                        <div key={i} className="animate-pulse">
-                          <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                          <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : recentCompetitors.length > 0 ? (
-                    <div className="space-y-4">
-                      {recentCompetitors.map((analysis) => (
-                        <div key={analysis._id} className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium">{analysis.keywords.join(", ")}</p>
-                            <p className="text-sm text-gray-500">
-                              {new Date(analysis.createdAt).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <div className="font-bold">{analysis.summary?.avgCompetitorScore || 0}/100</div>
-                            <Badge>{analysis.summary?.totalCompetitors || 0} competitors</Badge>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-6">
-                      <p className="text-gray-500 mb-4">No competitor analysis yet</p>
-                      <Button onClick={() => window?.alert("Go to New Analysis tab to start!")}>
-                        Start First Analysis
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Quick Tools */}
-              {/* (optional, keep or remove as you like) */}
-            </div>
-          </TabsContent>
-
-          {/* History Tab */}
-          <TabsContent value="history" className="space-y-6">
+      <main className="p-6">
+        <Tabs defaultValue="new-analysis" className="space-y-6">
+          <TabsList><TabsTrigger value="new-analysis">New Analysis</TabsTrigger><TabsTrigger value="history">History</TabsTrigger></TabsList>
+          <TabsContent value="new-analysis"><CompetitorStartContent onAnalysisStart={(id) => setViewingAnalysisId(id)} /></TabsContent>
+          <TabsContent value="history">
             <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>All Competitor Analyses</CardTitle>
-                    <CardDescription>Explore past analysis records</CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
+              <CardHeader><CardTitle>Analysis History</CardTitle><CardDescription>Click on any past analysis to view the detailed report.</CardDescription></CardHeader>
               <CardContent>
                 {isLoading ? (
+                  <div className="text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></div>
+                ) : history?.data?.length > 0 ? (
                   <div className="space-y-4">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="animate-pulse border rounded p-4">
-                        <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
-                        <div className="h-3 bg-gray-200 rounded w-1/4"></div>
-                      </div>
-                    ))}
-                  </div>
-                ) : recentCompetitors.length > 0 ? (
-                  <div className="space-y-4">
-                    {recentCompetitors.map((analysis) => (
-                      <div key={analysis._id} className="border rounded p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <h3 className="font-medium">{analysis.keywords.join(", ")}</h3>
-                          <Badge>{analysis.summary?.totalCompetitors || 0} competitors</Badge>
+                    {history.data.map((analysis: AnalysisResult) => (
+                      <div key={analysis._id} className="border rounded-lg p-4 flex items-center justify-between hover:bg-gray-50 cursor-pointer" onClick={() => setViewingAnalysisId(analysis._id)}>
+                        <div>
+                          <p className="font-medium">{analysis.keywords.join(", ")}</p>
+                          <p className="text-sm text-gray-500">{new Date(analysis.createdAt).toLocaleDateString()}</p>
                         </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                          <div>
-                            <span className="text-gray-500">Avg Score:</span>
-                            <div className="font-bold">{analysis.summary?.avgCompetitorScore || 0}/100</div>
-                          </div>
-                          <div>
-                            <span className="text-gray-500">Your Website:</span>
-                            <div>{analysis.userWebsite}</div>
-                          </div>
-                          <div>
-                            <span className="text-gray-500">Created:</span>
-                            <div>{new Date(analysis.createdAt).toLocaleDateString()}</div>
-                          </div>
+                        <div className="text-right">
+                          <div className="font-bold">{analysis.summary?.avgCompetitorScore || 'N/A'}/100</div>
+                          <Badge variant="secondary">{analysis.summary?.totalCompetitors || 0} competitors</Badge>
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-6">
-                    <p className="text-gray-500 mb-4">No records available</p>
-                  </div>
+                  <p className="text-center text-gray-500 py-4">No analysis history found.</p>
                 )}
               </CardContent>
             </Card>
           </TabsContent>
-
-          {/* New Analysis Tab */}
-          <TabsContent value="new-analysis">
-            <CompetitorStartContent />
-          </TabsContent>
         </Tabs>
-      </div>
+      </main>
     </div>
   )
 }
 
+/**
+ * The final exported page, wrapped in a ProtectedRoute.
+ */
 export default function CompetitorPage() {
   return (
     <ProtectedRoute requiredPlan="basic">

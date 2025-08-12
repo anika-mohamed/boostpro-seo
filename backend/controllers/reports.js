@@ -1,5 +1,5 @@
-const Report = require("../models/Report")
-const Audit = require("../models/Audit")
+const Report = require("../models/report")
+const Audit = require("../models/AuditResult")
 const { generatePDFReport } = require("../services/reportService")
 const fs = require("fs")
 const path = require("path")
